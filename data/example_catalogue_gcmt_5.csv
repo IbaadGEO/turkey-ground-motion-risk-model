@@ -1,0 +1,6 @@
+name,ref_origin_time_UTC,hypo_lat,hypo_lon,hypo_depth_km,mb,ms,centroid_time_shift_s,centroid_lat,centroid_lon,centroid_depth_km,centroid_depth_err_km,gCMT_depth_type,Mw,percent_DC,n_bodywave_sta,n_surfwave_sta,n_mantle_sta,np1_st,np1_dp,np1_rk,np2_st,np2_dp,np2_rk,segment,region
+B111199B,1999-11-11 14:41:25.600,40.74,30.27,22.0,5.5,5.5,4.9,40.95,30.1,15.2,3.2,FRE,5.63,41,47,0,0,301.0,50.0,-175.0,208.0,86.0,-41.0,"NAF, Akyazi-Sapanca (west-central)",TURKEY
+C200503140155A,2005-03-14 01:55:55.600,39.35,40.89,5.0,5.5,5.7,6.0,39.44,40.77,12.0,0.0,FIX,5.79,76,64,74,45,287.0,75.0,-165.0,194.0,76.0,-15.0,"NAF, Karliova (east)",TURKEY
+C200702211105A,2007-02-21 11:05:29.200,38.32,39.27,10.0,5.7,5.7,4.9,38.45,39.23,12.0,0.0,FIX,5.71,53,78,104,47,233.0,34.0,-58.0,15.0,61.0,-110.0,"EAF, Palu-Sivrice (Hazar)",TURKEY
+C201003080232A,2010-03-08 02:32:34.700,38.87,39.99,12.0,5.9,6.1,2.7,38.82,40.04,15.1,0.4,FRE,6.05,67,111,127,92,321.0,69.0,-173.0,228.0,83.0,-21.0,"EAF, Kovancilar-Elazig",TURKEY
+C201109220322A,2011-09-22 03:22:36.100,39.78,38.84,5.0,5.6,5.6,2.3,39.68,38.6,16.1,0.6,FRE,5.56,100,88,129,54,239.0,77.0,-5.0,330.0,85.0,-167.0,"NAF, Refahiye-Erzincan (east-central)",TURKEY

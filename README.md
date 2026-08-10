@@ -64,6 +64,8 @@ Its files are saved in `outputs`.
 - 145,548 ground-motion rows; and
 - 36,387 provisional damage rows.
 
+The test was repeated from a fresh clone using the included relative paths and Windows setup file.
+
 Run it with:
 
 ```text

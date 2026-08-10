@@ -30,6 +30,9 @@ OUTPUT_FOLDER = Path("outputs_gwfm")
 VS30 = 760.0
 MAP_EVENT_ID = "1421"
 RUN_BENCHMARK = True
+AKKAR_MAX_DEPTH_KM = 30.0
+EXPECTED_EARTHQUAKES = 117
+EXPECTED_EXPOSURE_LOCATIONS = 311
 
 
 def run_benchmark():
@@ -82,6 +85,36 @@ def load_inputs():
 
     vulnerability = pd.read_csv(VULNERABILITY_FILE)
     validate_vulnerability_curve(vulnerability)
+
+    if len(earthquakes) != EXPECTED_EARTHQUAKES:
+        raise ValueError(
+            f"Expected {EXPECTED_EARTHQUAKES} earthquakes, "
+            f"but loaded {len(earthquakes)}."
+        )
+
+    if len(exposure) != EXPECTED_EXPOSURE_LOCATIONS:
+        raise ValueError(
+            f"Expected {EXPECTED_EXPOSURE_LOCATIONS} exposure locations, "
+            f"but loaded {len(exposure)}."
+        )
+
+    deep_events = earthquakes["depth_km"] > AKKAR_MAX_DEPTH_KM
+
+    print(
+        "Earthquakes at or below 30 km:",
+        int((~deep_events).sum()),
+    )
+    print(
+        "Earthquakes deeper than 30 km:",
+        int(deep_events.sum()),
+    )
+
+    if deep_events.any():
+        print(
+            "WARNING: Akkar et al. (2014) states the model is intended "
+            "for focal depths not greater than 30 km. Deeper events are "
+            "retained for now pending guidance."
+        )
 
     print("Earthquakes loaded:", len(earthquakes))
     print("Exposure locations loaded:", len(exposure))
@@ -137,6 +170,9 @@ def create_source_receiver_pairs(earthquakes, exposure):
                     "vs30": location["vs30"],
                     "repi_km": repi_km,
                     "rhypo_km": rhypo_km,
+                    "source_within_30_km": (
+                        earthquake["depth_km"] <= AKKAR_MAX_DEPTH_KM
+                    ),
                     "within_200_km": rhypo_km <= 200.0,
                 }
             )

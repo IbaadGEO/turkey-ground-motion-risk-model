@@ -15,7 +15,7 @@ PGA is also passed through a provisional vulnerability curve to produce a damage
 
 - `akkar_turkey_portfolio_gwfm.py`: runs the full 117-event calculation.
 - `prepare_gwfm_catalogue.py`: reads and cleans the original gWFM text format.
-- `akkar_turkey_portfolio.py`: unchanged five-event working example.
+- `akkar_turkey_portfolio.py`: five-event gCMT working example with a broader range of source depths.
 - `data/gwfm_v1_2_clean.csv`: cleaned gWFM catalogue.
 - `data/gwfm_117_event_selection.csv`: selected earthquake IDs.
 - `data/turkey_50km_land_grid.csv`: 311 exposure locations.
@@ -58,8 +58,10 @@ Results are saved in `outputs_gwfm`:
 Before calculating ground motion, the program:
 
 - reports requested, matched, missing and duplicate event IDs;
+- checks that the full workflow contains 117 earthquakes and 311 exposure locations;
 - checks latitude, longitude, depth, magnitude and rake;
 - stops if a selected magnitude type is not `Mw`;
+- reports how many selected earthquakes are deeper than the 30 km applicability range stated by Akkar et al. (2014);
 - checks that vulnerability PGA values are ordered;
 - checks that damage ratios stay between 0 and 1; and
 - reports pairs within and beyond 200 km without deleting them.
@@ -69,4 +71,5 @@ Before calculating ground motion, the program:
 - Vs30 is fixed at 760 m/s at every location.
 - The vulnerability curve is provisional.
 - Damage results are therefore provisional.
+- Some selected gWFM earthquakes are deeper than the 30 km focal-depth range stated for the Akkar et al. (2014) model. These events are retained and flagged pending a decision on their treatment.
 - A decision is still needed on how to treat distances beyond 200 km.

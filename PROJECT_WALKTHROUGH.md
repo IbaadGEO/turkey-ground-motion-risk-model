@@ -86,4 +86,5 @@ Then show:
 
 - Replace the provisional vulnerability curve when the final curve is agreed.
 - Replace the fixed Vs30 value with location-specific values later.
+- Confirm how selected earthquakes deeper than the 30 km Akkar et al. (2014) applicability range should be treated.
 - Confirm how earthquake-location pairs beyond 200 km should be treated.

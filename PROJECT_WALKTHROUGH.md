@@ -2,7 +2,7 @@
 
 ## Purpose of this document
 
-This document records the complete development of the Turkey ground-motion portfolio script from Will's original Akkar GMPE notebook. It explains:
+This document records the complete development of the Turkey ground-motion portfolio script from the original Akkar GMPE notebook. It explains:
 
 - the problem the project is trying to solve;
 - what the original notebook did;
@@ -15,7 +15,7 @@ This document records the complete development of the Turkey ground-motion portf
 - how to reproduce the project from a fresh GitHub download; and
 - exactly how to demonstrate the code during a live meeting.
 
-The comparison in this document is between Will's original notebook, `Akkar_GMPE_testing.ipynb`, and the final repository script, `akkar_turkey_portfolio.py`. The original notebook is not included in the public repository, so this document provides the trace between the two versions. The reasoning recorded here is the practical design rationale for each change: what problem was identified, what was changed, why that approach was selected and what limitation remains.
+The comparison in this document is between the original notebook, `Akkar_GMPE_testing.ipynb`, and the repository scripts. The original notebook is not included in the public repository, so this document provides the trace between the versions. The reasoning recorded here is the practical design rationale for each change: what problem was identified, what was changed, why that approach was selected and what limitation remains.
 
 ---
 
@@ -1449,6 +1449,8 @@ Confirm the important imports:
 ```powershell
 python -c "import numpy, pandas, matplotlib; from openquake.baselib import __version__; print('OpenQuake', __version__)"
 ```
+
+This procedure was checked from a fresh clone using Python 3.12.13 and OpenQuake 3.26.2. The full script ran without changing any paths and produced 117 earthquakes, 311 locations, 36,387 source-receiver pairs, 145,548 ground-motion rows, 36,387 provisional damage rows and both map files.
 
 The official OpenQuake documentation also provides a Windows installer containing Python and the required dependencies. See the references at the end of this document.
 

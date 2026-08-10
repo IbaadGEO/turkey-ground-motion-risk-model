@@ -13,6 +13,27 @@ The calculated intensity measures are:
 
 PGA is also passed through a provisional vulnerability curve to demonstrate the damage-ratio stage.
 
+## Setup
+
+The project was tested with Python 3.12. On Windows, create and activate a virtual environment:
+
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r requirements-windows-py312.txt
+```
+
+The Windows requirements file uses OpenQuake's official Python 3.12 binary dependencies. This avoids trying to compile GDAL from source.
+
+On another operating system, follow the OpenQuake installation instructions for that system and then install the packages in `requirements.txt`.
+
+Check the installation with:
+
+```powershell
+python -c "import numpy, pandas, matplotlib; from openquake.baselib import __version__; print('OpenQuake', __version__)"
+```
+
 ## Two runnable versions
 
 ### Five-event baseline

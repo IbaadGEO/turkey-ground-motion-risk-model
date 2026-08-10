@@ -1433,17 +1433,16 @@ For Python 3.12 and OpenQuake Engine 3.26:
 
 ```powershell
 python -m pip install --upgrade pip
-python -m pip install -r https://github.com/gem/oq-engine/raw/engine-3.26/requirements-py312-win64.txt openquake.engine
-python -m pip install numpy pandas matplotlib
+python -m pip install -r requirements-windows-py312.txt
 ```
 
-The shorter project command is:
+The project Windows requirements file first loads OpenQuake's official Python 3.12 binary requirements and then loads `requirements.txt`. This avoids trying to compile GDAL from source.
+
+On another operating system, follow the OpenQuake installation instructions for that system and then run:
 
 ```powershell
 python -m pip install -r requirements.txt
 ```
-
-If the shorter command fails while building GDAL or another geospatial package, use the official OpenQuake Windows requirements command above.
 
 Confirm the important imports:
 

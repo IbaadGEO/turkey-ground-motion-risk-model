@@ -65,6 +65,10 @@ The script creates:
 - a map of the 311 exposure locations and all 117 earthquakes; and
 - a PGA map across the exposure grid for event `1421`.
 
+The PGA map shows exact zero values in grey. Positive values use the bright
+`turbo` colour map on a logarithmic scale so that low non-zero ground motions
+remain distinguishable.
+
 ## How to demonstrate it
 
 Install the requirements and run:

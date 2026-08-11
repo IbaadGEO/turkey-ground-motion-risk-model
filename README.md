@@ -53,6 +53,10 @@ Results are saved in `outputs_gwfm`:
 - `exposure_and_earthquakes.png`; and
 - `pga_map_1421.png`.
 
+The PGA map shows exact zero values in grey. Positive values use the bright
+`turbo` colour map on a logarithmic scale so that low non-zero ground motions
+remain distinguishable.
+
 ## Checks included
 
 Before calculating ground motion, the program:

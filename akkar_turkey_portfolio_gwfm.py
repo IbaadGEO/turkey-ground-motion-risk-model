@@ -11,6 +11,7 @@ import pandas as pd
 from openquake.hazardlib.gsim.akkar_2014 import AkkarEtAlRhyp2014
 from openquake.hazardlib.imt import PGA, PGV, SA
 
+from map_plotting import plot_pga_receiver_points
 from prepare_gwfm_catalogue import (
     print_distance_summary,
     select_gwfm_events,
@@ -297,15 +298,7 @@ def plot_pga_map(damage):
     event_id = event["event_id"]
 
     fig, ax = plt.subplots(figsize=(11, 6))
-    points = ax.scatter(
-        map_results["receiver_longitude"],
-        map_results["receiver_latitude"],
-        c=map_results["median_pga_g"],
-        cmap="viridis",
-        s=30,
-        edgecolor="black",
-        linewidth=0.2,
-    )
+    points = plot_pga_receiver_points(ax, map_results)
     ax.scatter(
         event["source_longitude"],
         event["source_latitude"],
@@ -323,8 +316,12 @@ def plot_pga_map(damage):
     )
     set_map_shape(ax, map_results["receiver_latitude"])
     ax.legend()
-    colorbar = fig.colorbar(points, ax=ax)
-    colorbar.set_label("Median PGA (g)")
+    if points is not None:
+        colorbar = fig.colorbar(points, ax=ax)
+        colorbar_label = "Median PGA (g)"
+        if isinstance(points.norm, matplotlib.colors.LogNorm):
+            colorbar_label += ", logarithmic colour scale"
+        colorbar.set_label(colorbar_label)
     fig.tight_layout()
     fig.savefig(OUTPUT_FOLDER / f"pga_map_{event_id}.png", dpi=150)
     plt.close(fig)

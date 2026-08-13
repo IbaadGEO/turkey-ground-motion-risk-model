@@ -62,6 +62,9 @@ class PlotTurkeyBorderTests(unittest.TestCase):
 
 
 class PlotPgaReceiverPointsTests(unittest.TestCase):
+    def test_positive_pga_colour_map_is_viridis(self):
+        self.assertEqual(POSITIVE_PGA_COLOR_MAP, "viridis")
+
     def tearDown(self):
         plt.close("all")
 

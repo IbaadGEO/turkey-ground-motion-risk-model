@@ -2,7 +2,10 @@
 
 This project calculates earthquake ground motion at a 50 km grid of locations across Turkey.
 
-The main calculation uses 117 selected earthquakes from the gWFM v1.2 catalogue and 311 exposure locations. For every earthquake-location pair, it calculates:
+The main calculation uses 117 selected earthquakes from the gWFM v1.2
+catalogue and 311 exposure locations. Each earthquake can use waveform,
+ISC-EHB and Global CMT depth estimates. For every valid
+earthquake-depth-location scenario, it calculates:
 
 - PGA;
 - PGV;
@@ -21,8 +24,10 @@ conditional on median PGA.
 - `map_plotting.py`: Turkey-border and PGA-point plotting functions.
 - `vulnerability.py`: validates and applies one OpenQuake NRML structural
   vulnerability function.
-- `data/gwfm_v1_2_clean.csv`: cleaned gWFM catalogue.
-- `data/gwfm_117_event_selection.csv`: selected earthquake IDs.
+- `data/gwfm_v1_2_clean.csv`: cleaned gWFM catalogue with waveform, ISC-EHB
+  and embedded Global CMT depths.
+- `data/gwfm_117_event_selection.csv`: selected earthquake IDs and supplied
+  Global CMT comparison depths.
 - `data/turkey_50km_land_grid.csv`: 311 exposure locations.
 - `data/turkey_boundary.geojson`: Turkey national outline used by every map.
 - `data/gem_vulnerability_v2026/vulnerability_structural.xml`: pinned GEM
@@ -52,21 +57,24 @@ python akkar_turkey_portfolio_gwfm.py
 The tested run produces:
 
 - 117 earthquakes;
+- 321 valid event-depth scenarios;
 - 311 exposure locations;
-- 36,387 earthquake-location pairs;
-- 145,548 ground-motion rows; and
-- 36,387 mean structural-loss-ratio rows.
+- 99,831 earthquake-depth-location pairs;
+- 399,324 ground-motion rows; and
+- 99,831 mean structural-loss-ratio rows.
 
 Results are saved in `outputs_gwfm`:
 
 - `ground_motion_results.csv`;
 - `structural_loss_ratios.csv`;
+- `selected_event_depths.csv`;
 - `exposure_and_earthquakes.png`; and
 - `pga_map_1421.png`.
 
-The PGA map shows exact zero values in grey. Positive values use the bright
-`turbo` colour map on a logarithmic scale so that low non-zero ground motions
-remain distinguishable. Every map includes a black Turkey outline derived from
+The PGA map shows exact zero values in grey. Positive values use the
+perceptually uniform `viridis` colour map on a logarithmic scale so that low
+non-zero ground motions remain distinguishable. Every map includes a black
+Turkey outline derived from
 Natural Earth's public-domain `ne_50m_admin_0_countries` dataset, version 5.1.2.
 
 ## Checks included
@@ -75,7 +83,9 @@ Before calculating ground motion, the program:
 
 - reports requested, matched, missing and duplicate event IDs;
 - checks that the full workflow contains 117 earthquakes and 311 exposure locations;
-- checks latitude, longitude, depth, magnitude and rake;
+- checks latitude, longitude, waveform depth, magnitude and rake;
+- records missing or invalid ISC-EHB and Global CMT depths without guessing;
+- checks overlapping supplied and embedded Global CMT depths agree;
 - stops if a selected magnitude type is not `Mw`;
 - reports how many selected earthquakes are deeper than the 30 km applicability range stated by Akkar et al. (2014);
 - requires the exact selected vulnerability function;
@@ -86,6 +96,9 @@ Before calculating ground motion, the program:
 ## Current limitations
 
 - Vs30 is fixed at 760 m/s at every location.
+- Depth coverage is incomplete: 110 events have valid ISC-EHB depths and 94
+  have valid Global CMT depths. Missing and invalid depths are retained in the
+  depth table but excluded from the GMPE calculation.
 - One representative residential building taxonomy is currently applied to
   every location; a location-specific building inventory is not yet included.
 - Contents, nonstructural and fatalities/occupants vulnerability models are

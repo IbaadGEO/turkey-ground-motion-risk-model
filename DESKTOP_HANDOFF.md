@@ -81,7 +81,8 @@ Tests and guides:
 - The authoritative selection contains 117 gWFM events.
 - All 117 selected IDs match exactly one row in the cleaned catalogue.
 - The analysis uses 311 Turkey exposure locations.
-- The nested workflow creates one scenario for every event-location pair.
+- The nested workflow creates one scenario for every valid
+  event-depth-location combination.
 - The current source mapping is:
 
 | Source property | gWFM field used |
@@ -90,7 +91,9 @@ Tests and guides:
 | Origin time | `yyyymmdd` and `hhmm` |
 | Longitude | `wlon` |
 | Latitude | `wlat` |
-| Depth | `wzc` |
+| Waveform depth | `wzc` |
+| ISC-EHB depth | `izc` |
+| Global CMT depth | `czc`, supplemented by the supplied comparison table |
 | Magnitude | `mag` |
 | Magnitude type | `mty` |
 | Rake | waveform `rk` |
@@ -98,6 +101,8 @@ Tests and guides:
 - Rake is normalised to the range expected by the GMPE.
 - Hypocentral distance is calculated as
   `Rhyp = hypot(Repi, source_depth_km)`.
+- The depth table contains 117 waveform, 110 valid ISC-EHB and 94 valid
+  Global CMT scenarios. Missing and non-positive depths are not guessed.
 - Pairs outside the working model limits are retained and flagged rather than
   silently deleted.
 
@@ -130,7 +135,7 @@ Tests and guides:
   authoritative selected events outside the Turkey outline.
 - The production PGA map uses event `1421`.
 - Exact zero PGA values are grey.
-- Positive PGA values use the approved bright `turbo` colour map.
+- Positive PGA values use the perceptually uniform `viridis` colour map.
 - Positive values use a logarithmic colour scale when their range allows it.
 
 ### Structural vulnerability
@@ -189,17 +194,18 @@ Verified production run:
 | Check | Result |
 |---|---:|
 | Selected earthquakes | 117 |
+| Valid event-depth scenarios | 321 |
 | Exposure locations | 311 |
-| Source-receiver pairs | 36,387 |
-| Ground-motion result rows | 145,548 |
-| Structural-loss rows | 36,387 |
+| Source-receiver pairs | 99,831 |
+| Ground-motion result rows | 399,324 |
+| Structural-loss rows | 99,831 |
 | Selected IDs missing | 0 |
 | Selected IDs duplicated | 0 |
-| Events at or below 30 km | 92 |
-| Events deeper than 30 km | 25 |
-| Pairs within 200 km | 2,182 |
-| Pairs beyond 200 km | 34,205 |
-| Positive structural-loss rows | 90 |
+| Valid depths at or below 30 km | 244 |
+| Valid depths deeper than 30 km | 77 |
+| Pairs within 200 km | 5,656 |
+| Pairs beyond 200 km | 94,175 |
+| Positive structural-loss rows | 222 |
 | Maximum mean structural-loss ratio | 0.3466207197 |
 
 Validation completed before the public push:
@@ -207,9 +213,9 @@ Validation completed before the public push:
 - Python compilation passed.
 - Focused lint passed with the established E402, E501 and W503 style
   exceptions ignored.
-- All 13 automated unit tests passed.
+- All 19 automated unit tests passed.
 - The OpenQuake benchmark passed.
-- The full 117 by 311 workflow passed.
+- The full 321-depth-scenario by 311-location workflow passed.
 - The structural-vulnerability implementation matched OpenQuake interpolation.
 - Both final PNG maps were visually inspected.
 - Word guide content, OOXML structure and metadata checks passed.
@@ -221,10 +227,11 @@ Validation completed before the public push:
 Do not change these without explicit scientific approval:
 
 - the selected 117 event IDs;
-- the `wlon`, `wlat`, `wzc`, magnitude and waveform-rake mapping;
+- the `wlon`, `wlat`, `wzc`, `izc`, `czc`, magnitude and waveform-rake
+  mapping;
 - the Haversine epicentral-distance calculation;
 - `Rhyp = hypot(Repi, depth)`;
-- the earthquake-by-location nested calculation;
+- the earthquake-by-depth-source-by-location nested calculation;
 - retention and flagging of deep or distant scenarios;
 - the separation of intensity-measure units;
 - the exact vulnerability function and structural-only loss category; or
@@ -239,9 +246,9 @@ implementation limitation.
 
 ### GMPE scope
 
-- Twenty-five selected earthquakes are deeper than the approximate 30 km
-  applicability limit.
-- 34,205 event-location pairs are beyond 200 km.
+- Seventy-seven valid depth scenarios are deeper than the approximate 30 km
+  applicability limit, including 25 waveform-depth scenarios.
+- 94,175 event-depth-location pairs are beyond 200 km.
 - These rows are retained and flagged. A scientific decision is still needed
   on whether to retain, exclude or treat them differently in later reporting.
 
@@ -327,31 +334,13 @@ Do not hard-code an expected location count into the generic sampling
 function. The production workflow may keep an optional expected-count check
 for a specific approved grid.
 
-### Priority 3: add alternative earthquake depths
+### Completed: add alternative earthquake depths
 
-The current cleaned catalogue contains only the waveform depth used as
-`depth_km`. Alternative depth fields are not present in the repository.
-
-Required external inputs or decisions:
-
-- confirmed CMT depth field and the meaning of sentinel values such as `-10`;
-- matching ISC depth data;
-- matching GMC depth data; and
-- an approved event-matching method for each catalogue.
-
-Do not treat `-10` as a physical depth. Do not invent mappings for absent ISC
-or GMC data.
-
-Suggested design:
-
-1. Build a long-form depth-scenario table with columns such as `event_id`,
-   `depth_source`, `depth_km` and `depth_status`.
-2. Validate every depth source separately.
-3. Add a depth-scenario loop outside the existing location loop.
-4. Recalculate `Rhyp` for each approved depth.
-5. Retain the baseline waveform-depth scenario unchanged.
-6. Record missing or invalid depth scenarios explicitly rather than filling
-   them silently.
+The cleaned catalogue now retains waveform (`wzc`), ISC-EHB (`izc`) and
+embedded Global CMT (`czc`) depths. The supplied CMT comparison values match
+all 88 overlaps and add six valid CMT depths. The workflow creates a long-form
+depth table, records `-10`, missing and non-positive values explicitly, and
+calculates every valid depth at every exposure location.
 
 ### Priority 4: compare depth bias and consequences
 
@@ -390,7 +379,7 @@ Transfer these separately when needed and confirm their sharing permissions:
 - the original raw gWFM catalogue, if the cleaned CSV must be regenerated
 - `117 EQ - depth comparison data.pdf`
 - the five-selected-earthquakes workbook, if needed for later comparison work
-- any ISC or GMC depth catalogue supplied later
+- any additional GMC or replacement depth catalogue supplied later
 - the original remaining-tasks checklist
 
 The older supplied vulnerability XML/mapping bundle was GEM v2023, while the

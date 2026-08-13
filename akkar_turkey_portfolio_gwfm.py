@@ -27,14 +27,13 @@ from vulnerability import (
 CATALOGUE_FILE = Path("data/gwfm_v1_2_clean.csv")
 EVENT_SELECTION_FILE = Path("data/gwfm_117_event_selection.csv")
 SELECTION_ID_COLUMN = "event_id"
-EXPOSURE_FILE = Path("data/turkey_50km_land_grid.csv")
+EXPOSURE_FILE = Path("data/turkey_50km_land_grid_vs30.csv")
 VULNERABILITY_FILE = Path(
     "data/gem_vulnerability_v2026/vulnerability_structural.xml"
 )
 OUTPUT_FOLDER = Path("outputs_gwfm")
 
 # Calculation settings
-VS30 = 760.0
 MAP_EVENT_ID = "1421"
 MAP_DEPTH_SOURCE = "waveform"
 RUN_BENCHMARK = True
@@ -99,8 +98,10 @@ def load_inputs():
     event_depths = build_event_depth_table(earthquakes)
 
     exposure = pd.read_csv(EXPOSURE_FILE)
-    exposure = exposure[["location_id", "latitude", "longitude"]].copy()
-    exposure["vs30"] = VS30
+    exposure = exposure[
+        ["location_id", "latitude", "longitude", "vs30_m_s", "vs30_status"]
+    ].copy()
+    exposure = exposure.rename(columns={"vs30_m_s": "vs30"})
 
     vulnerability = load_structural_vulnerability_curve(
         VULNERABILITY_FILE,
@@ -119,6 +120,13 @@ def load_inputs():
             f"Expected {EXPECTED_EXPOSURE_LOCATIONS} exposure locations, "
             f"but loaded {len(exposure)}."
         )
+
+    if not np.isfinite(exposure["vs30"]).all():
+        raise ValueError("Every exposure location must have a finite Vs30 value.")
+    if not exposure["vs30"].between(150.0, 1200.0, inclusive="neither").all():
+        raise ValueError("Vs30 values must be between 150 and 1200 m/s.")
+    if not exposure["vs30_status"].isin(["direct", "nearest_valid"]).all():
+        raise ValueError("Every exposure location must have a completed Vs30 status.")
 
     valid_depths = event_depths[event_depths["depth_status"] == "valid"]
     valid_depth_counts = valid_depths["depth_source"].value_counts()
@@ -145,6 +153,18 @@ def load_inputs():
     print("Earthquakes loaded:", len(earthquakes))
     print("Event-depth rows created:", len(event_depths))
     print("Exposure locations loaded:", len(exposure))
+    print("Vs30 values sampled directly:", int((exposure["vs30_status"] == "direct").sum()))
+    print(
+        "Vs30 values filled from nearest valid cell:",
+        int((exposure["vs30_status"] == "nearest_valid").sum()),
+    )
+    print(
+        "Vs30 range:",
+        round(exposure["vs30"].min(), 1),
+        "to",
+        round(exposure["vs30"].max(), 1),
+        "m/s",
+    )
     print(
         "Structural loss ratios use GEM Global Vulnerability Model",
         VULNERABILITY_MODEL_VERSION,

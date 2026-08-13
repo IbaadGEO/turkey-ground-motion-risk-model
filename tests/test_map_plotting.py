@@ -11,9 +11,54 @@ import pandas as pd
 
 from map_plotting import (
     POSITIVE_PGA_COLOR_MAP,
+    TURKEY_BORDER_COLOR,
+    TURKEY_BOUNDARY_FILE,
     ZERO_PGA_COLOR,
+    load_turkey_boundary_rings,
     plot_pga_receiver_points,
+    plot_turkey_border,
 )
+
+
+class PlotTurkeyBorderTests(unittest.TestCase):
+    def tearDown(self):
+        plt.close("all")
+
+    def test_boundary_file_contains_valid_multi_part_turkey_outline(self):
+        rings = load_turkey_boundary_rings()
+        all_coordinates = np.vstack(rings)
+
+        self.assertEqual(len(rings), 3)
+        self.assertTrue(all(np.allclose(ring[0], ring[-1]) for ring in rings))
+        self.assertGreater(all_coordinates[:, 0].min(), 25.0)
+        self.assertLess(all_coordinates[:, 0].max(), 45.0)
+        self.assertGreater(all_coordinates[:, 1].min(), 35.0)
+        self.assertLess(all_coordinates[:, 1].max(), 43.0)
+
+    def test_boundary_file_records_natural_earth_provenance(self):
+        import json
+
+        with TURKEY_BOUNDARY_FILE.open(encoding="utf-8") as boundary_stream:
+            boundary = json.load(boundary_stream)
+
+        properties = boundary["features"][0]["properties"]
+        self.assertEqual(properties["source"], "Natural Earth")
+        self.assertEqual(properties["source_version"], "5.1.2")
+        self.assertEqual(properties["license"], "Public domain")
+        self.assertEqual(properties["iso_a3"], "TUR")
+
+    def test_border_is_drawn_as_black_lines(self):
+        fig, ax = plt.subplots()
+
+        lines = plot_turkey_border(ax)
+
+        self.assertEqual(len(lines), 3)
+        self.assertEqual(tuple(ax.lines), lines)
+        self.assertTrue(
+            all(line.get_color() == TURKEY_BORDER_COLOR for line in lines)
+        )
+        self.assertTrue(all(line.get_linewidth() == 1.2 for line in lines))
+        self.assertTrue(all(line.get_zorder() == 2 for line in lines))
 
 
 class PlotPgaReceiverPointsTests(unittest.TestCase):

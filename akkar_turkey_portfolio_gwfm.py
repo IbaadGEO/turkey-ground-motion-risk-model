@@ -11,11 +11,14 @@ import pandas as pd
 from openquake.hazardlib.gsim.akkar_2014 import AkkarEtAlRhyp2014
 from openquake.hazardlib.imt import PGA, PGV, SA
 
-from map_plotting import plot_pga_receiver_points
+from map_plotting import plot_pga_receiver_points, plot_turkey_border
 from prepare_gwfm_catalogue import (
     print_distance_summary,
     select_gwfm_events,
-    validate_vulnerability_curve,
+)
+from vulnerability import (
+    calculate_structural_loss_ratios,
+    load_structural_vulnerability_curve,
 )
 
 
@@ -24,7 +27,9 @@ CATALOGUE_FILE = Path("data/gwfm_v1_2_clean.csv")
 EVENT_SELECTION_FILE = Path("data/gwfm_117_event_selection.csv")
 SELECTION_ID_COLUMN = "event_id"
 EXPOSURE_FILE = Path("data/turkey_50km_land_grid.csv")
-VULNERABILITY_FILE = Path("data/provisional_vulnerability_curve.csv")
+VULNERABILITY_FILE = Path(
+    "data/gem_vulnerability_v2026/vulnerability_structural.xml"
+)
 OUTPUT_FOLDER = Path("outputs_gwfm")
 
 # Calculation settings
@@ -34,6 +39,11 @@ RUN_BENCHMARK = True
 AKKAR_MAX_DEPTH_KM = 30.0
 EXPECTED_EARTHQUAKES = 117
 EXPECTED_EXPOSURE_LOCATIONS = 311
+VULNERABILITY_FUNCTION_ID = "CR/LFINF/CDL+ERL/H:2/RES"
+VULNERABILITY_MODEL_VERSION = "v2026.0.0"
+VULNERABILITY_MODEL_SHA256 = (
+    "ABAAD2CBD313780E370DC1DD97DB01061FB03E58D5FA5C7590B2A879019F6116"
+)
 
 
 def run_benchmark():
@@ -84,8 +94,11 @@ def load_inputs():
     exposure = exposure[["location_id", "latitude", "longitude"]].copy()
     exposure["vs30"] = VS30
 
-    vulnerability = pd.read_csv(VULNERABILITY_FILE)
-    validate_vulnerability_curve(vulnerability)
+    vulnerability = load_structural_vulnerability_curve(
+        VULNERABILITY_FILE,
+        VULNERABILITY_FUNCTION_ID,
+        VULNERABILITY_MODEL_SHA256,
+    )
 
     if len(earthquakes) != EXPECTED_EARTHQUAKES:
         raise ValueError(
@@ -119,7 +132,13 @@ def load_inputs():
 
     print("Earthquakes loaded:", len(earthquakes))
     print("Exposure locations loaded:", len(exposure))
-    print("Damage results use the provisional vulnerability curve.")
+    print(
+        "Structural loss ratios use GEM Global Vulnerability Model",
+        VULNERABILITY_MODEL_VERSION,
+        "function",
+        VULNERABILITY_FUNCTION_ID,
+    )
+    print("Contents, nonstructural and fatalities models are excluded.")
 
     return earthquakes, exposure, vulnerability
 
@@ -234,18 +253,15 @@ def calculate_ground_motion(scenarios):
     return results
 
 
-def calculate_damage(results, vulnerability):
-    damage = results[results["imt"] == "PGA"].copy()
-    damage = damage.rename(columns={"median_value": "median_pga_g"})
-
-    damage["damage_ratio"] = np.interp(
-        damage["median_pga_g"],
-        vulnerability["pga_g"],
-        vulnerability["damage_ratio"],
+def calculate_structural_loss(results, vulnerability):
+    structural_loss = calculate_structural_loss_ratios(
+        results,
+        vulnerability,
+        VULNERABILITY_MODEL_VERSION,
     )
 
-    print("Provisional damage-ratio rows calculated:", len(damage))
-    return damage
+    print("Structural-loss-ratio rows calculated:", len(structural_loss))
+    return structural_loss
 
 
 def set_map_shape(ax, latitudes):
@@ -253,11 +269,13 @@ def set_map_shape(ax, latitudes):
     ax.set_aspect(1.0 / np.cos(np.radians(mean_latitude)))
     ax.set_xlabel("Longitude")
     ax.set_ylabel("Latitude")
+    ax.set_axisbelow(True)
     ax.grid(alpha=0.25)
 
 
 def plot_inputs(earthquakes, exposure):
     fig, ax = plt.subplots(figsize=(11, 6))
+    plot_turkey_border(ax)
 
     ax.scatter(
         exposure["longitude"],
@@ -265,6 +283,7 @@ def plot_inputs(earthquakes, exposure):
         s=15,
         color="steelblue",
         label="Exposure locations",
+        zorder=3,
     )
     ax.scatter(
         earthquakes["longitude"],
@@ -275,6 +294,7 @@ def plot_inputs(earthquakes, exposure):
         edgecolor="black",
         linewidth=0.4,
         label="gWFM earthquakes",
+        zorder=4,
     )
 
     ax.set_title("Exposure grid and selected gWFM earthquakes")
@@ -285,19 +305,24 @@ def plot_inputs(earthquakes, exposure):
     plt.close(fig)
 
 
-def plot_pga_map(damage):
-    map_results = damage[damage["event_id"] == MAP_EVENT_ID].copy()
+def plot_pga_map(structural_loss):
+    map_results = structural_loss[
+        structural_loss["event_id"] == MAP_EVENT_ID
+    ].copy()
 
     if map_results.empty:
-        largest_event = damage.sort_values("magnitude", ascending=False).iloc[0]
-        map_results = damage[
-            damage["event_id"] == largest_event["event_id"]
+        largest_event = structural_loss.sort_values(
+            "magnitude", ascending=False
+        ).iloc[0]
+        map_results = structural_loss[
+            structural_loss["event_id"] == largest_event["event_id"]
         ].copy()
 
     event = map_results.iloc[0]
     event_id = event["event_id"]
 
     fig, ax = plt.subplots(figsize=(11, 6))
+    plot_turkey_border(ax)
     points = plot_pga_receiver_points(ax, map_results)
     ax.scatter(
         event["source_longitude"],
@@ -307,6 +332,7 @@ def plot_pga_map(damage):
         color="darkorange",
         edgecolor="black",
         label="Earthquake",
+        zorder=4,
     )
 
     ax.set_title(
@@ -336,16 +362,16 @@ def main():
     earthquakes, exposure, vulnerability = load_inputs()
     scenarios = create_source_receiver_pairs(earthquakes, exposure)
     results = calculate_ground_motion(scenarios)
-    damage = calculate_damage(results, vulnerability)
+    structural_loss = calculate_structural_loss(results, vulnerability)
 
     results.to_csv(OUTPUT_FOLDER / "ground_motion_results.csv", index=False)
-    damage.to_csv(
-        OUTPUT_FOLDER / "provisional_damage_ratios.csv",
+    structural_loss.to_csv(
+        OUTPUT_FOLDER / "structural_loss_ratios.csv",
         index=False,
     )
 
     plot_inputs(earthquakes, exposure)
-    plot_pga_map(damage)
+    plot_pga_map(structural_loss)
 
     print("Finished. Results were saved in:", OUTPUT_FOLDER)
 

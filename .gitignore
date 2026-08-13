@@ -4,3 +4,4 @@ __pycache__/
 tmp/
 gmpe_outputs/
 data/external/
+outputs_gwfm/*.csv

@@ -10,11 +10,11 @@ clone without relying on prior chat history.
 
 - Repository: <https://github.com/IbaadGEO/turkey-ground-motion-risk-model>
 - Branch: `main`
-- Current public commit:
+- Production workflow release commit:
   `48d61c941fbd55e130b3bc168d1b1db990e6ebf6`
 - Commit message: `Publish production risk workflow`
-- The local canonical checkout was clean and matched `origin/main` after the
-  push.
+- This handoff was added in a later commit. Clone the latest `main` so both the
+  production release and this file are present.
 - The repository now contains only the 117-event production workflow,
   production inputs and outputs, documentation, and automated validation
   tests.
@@ -32,9 +32,11 @@ git status -sb
 Expected result:
 
 ```text
-48d61c9 Publish production risk workflow
+<latest commit on main>
 ## main...origin/main
 ```
+
+The history must include `48d61c9 Publish production risk workflow`.
 
 ## 2. Current repository contents
 
@@ -439,7 +441,9 @@ change.
 
 Use this prompt after cloning the repository and copying the TIFF separately:
 
-> Continue the Turkey ground-motion project from public main commit 48d61c9.
+> Continue the Turkey ground-motion project from the latest public main. The
+> production workflow was released in commit 48d61c9, and DESKTOP_HANDOFF.md
+> records the authoritative continuation state.
 > First inspect the existing production workflow and tests. Implement a shared,
 > generic Vs30 raster sampler for arbitrary longitude/latitude location tables
 > using TRVs30GeoM_9Arcsec.tif. Read and transform to the raster CRS, preserve

@@ -123,6 +123,6 @@ Then show:
 
 - Add a location-specific building inventory or taxonomy mixture if the model
   is extended beyond the current representative structural scenario.
-- Replace the fixed Vs30 value with location-specific values later.
+- Confirm whether the seven nearest-cell Vs30 replacements are acceptable.
 - Confirm how selected earthquakes deeper than the 30 km Akkar et al. (2014) applicability range should be treated.
 - Confirm how earthquake-location pairs beyond 200 km should be treated.

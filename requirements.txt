@@ -2,3 +2,5 @@ numpy
 pandas
 matplotlib
 openquake.engine
+rasterio
+affine<3

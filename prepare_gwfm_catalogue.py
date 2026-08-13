@@ -282,35 +282,6 @@ def validate_selected_earthquakes(earthquakes):
     print("Selected earthquake inputs passed validation:", len(earthquakes))
 
 
-def validate_vulnerability_curve(vulnerability):
-    required_columns = ["pga_g", "damage_ratio"]
-    missing_columns = [
-        column for column in required_columns if column not in vulnerability.columns
-    ]
-
-    if missing_columns:
-        raise ValueError(
-            "Vulnerability table is missing columns: " + ", ".join(missing_columns)
-        )
-
-    if vulnerability.empty:
-        raise ValueError("The vulnerability table is empty.")
-
-    pga_values = pd.to_numeric(vulnerability["pga_g"], errors="coerce")
-    damage_ratios = pd.to_numeric(vulnerability["damage_ratio"], errors="coerce")
-
-    if not np.isfinite(pga_values).all():
-        raise ValueError("The vulnerability table contains an unusable PGA value.")
-    if not np.isfinite(damage_ratios).all():
-        raise ValueError("The vulnerability table contains an unusable damage ratio.")
-    if (pga_values.diff().dropna() <= 0.0).any():
-        raise ValueError("Vulnerability PGA values must increase from low to high.")
-    if ((damage_ratios < 0.0) | (damage_ratios > 1.0)).any():
-        raise ValueError("Vulnerability damage ratios must stay between 0 and 1.")
-
-    print("Vulnerability curve passed validation:", len(vulnerability), "points")
-
-
 def print_distance_summary(scenarios):
     if "within_200_km" not in scenarios.columns:
         raise ValueError("The scenario table does not contain 'within_200_km'.")

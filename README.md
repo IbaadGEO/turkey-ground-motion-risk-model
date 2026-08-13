@@ -1,7 +1,7 @@
 # Turkey Ground-Motion Model
 
 This project calculates earthquake ground motion across a 50 km grid of 311
-locations in Turkey.
+locations in Turkey. Each location now has its own Vs30 value.
 
 It uses 117 selected earthquakes from the gWFM v1.2 catalogue. Where available,
 each earthquake is calculated using three different depth sources:
@@ -31,6 +31,26 @@ python -m pip install -r requirements-windows-py312.txt
 python akkar_turkey_portfolio_gwfm.py
 ```
 
+The main run uses `data/turkey_50km_land_grid_vs30.csv`, so the large Vs30
+raster is not needed for a normal run.
+
+## Vs30 Data
+
+Vs30 values come from the 9 arcsecond TRVs30GeoM model of Turkey:
+
+https://doi.org/10.5281/zenodo.10149864
+
+The grid contains 304 direct raster values. Seven coastal or edge locations
+use the nearest value between 150 and 1200 m/s within 10 km. These rows and
+their distances are marked in the CSV.
+
+To recreate the Vs30 grid, place `TRVs30GeoM_9Arcsec.tif` in `data/external`
+and run:
+
+```powershell
+python prepare_vs30_grid.py
+```
+
 The tested run produces:
 
 - 321 valid earthquake-depth combinations;
@@ -50,7 +70,6 @@ Results are saved in `outputs_gwfm`:
 
 ## Current Limitations
 
-- Vs30 is fixed at 760 m/s for every location.
 - Some ISC-EHB and Global CMT depths are missing and are not used.
 - Deep earthquakes and distances beyond 200 km are retained but flagged.
 - One residential building type is used at every location.

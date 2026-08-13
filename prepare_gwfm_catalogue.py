@@ -11,10 +11,19 @@ FIELD_POSITIONS = {
     "hhmm": 2,
     "wlon": 3,
     "wlat": 4,
-    "wzc": 5,
+    "waveform_depth_km": 5,
+    "isc_ehb_depth_km": 9,
+    "global_cmt_depth_km": 15,
     "waveform_rk": 19,
     "mag": 25,
     "mty": 26,
+}
+
+HEADER_FIELD_NAMES = {
+    "waveform_depth_km": "wzc",
+    "isc_ehb_depth_km": "izc",
+    "global_cmt_depth_km": "czc",
+    "waveform_rk": "rk",
 }
 
 MINUS_SIGNS = ["−", "‐", "‑", "‒", "–", "—", "﹣", "－"]
@@ -41,7 +50,7 @@ def load_gwfm_catalogue(file_path):
 
     header = normalise_minus_signs(lines[1]).split()
     for field_name, position in FIELD_POSITIONS.items():
-        expected_name = "rk" if field_name == "waveform_rk" else field_name
+        expected_name = HEADER_FIELD_NAMES.get(field_name, field_name)
         if position >= len(header) or header[position] != expected_name:
             raise ValueError(
                 f"The expected gWFM field '{expected_name}' was not found "
@@ -66,7 +75,15 @@ def load_gwfm_catalogue(file_path):
                 "hhmm": tokens[FIELD_POSITIONS["hhmm"]],
                 "longitude": tokens[FIELD_POSITIONS["wlon"]],
                 "latitude": tokens[FIELD_POSITIONS["wlat"]],
-                "depth_km": tokens[FIELD_POSITIONS["wzc"]],
+                "waveform_depth_km": tokens[
+                    FIELD_POSITIONS["waveform_depth_km"]
+                ],
+                "isc_ehb_depth_km": tokens[
+                    FIELD_POSITIONS["isc_ehb_depth_km"]
+                ],
+                "global_cmt_depth_km": tokens[
+                    FIELD_POSITIONS["global_cmt_depth_km"]
+                ],
                 "magnitude": tokens[FIELD_POSITIONS["mag"]],
                 "magnitude_type": tokens[FIELD_POSITIONS["mty"]],
                 "rake": tokens[FIELD_POSITIONS["waveform_rk"]],
@@ -96,7 +113,15 @@ def load_gwfm_catalogue(file_path):
         errors="coerce",
     )
 
-    numeric_columns = ["longitude", "latitude", "depth_km", "magnitude", "rake"]
+    numeric_columns = [
+        "longitude",
+        "latitude",
+        "waveform_depth_km",
+        "isc_ehb_depth_km",
+        "global_cmt_depth_km",
+        "magnitude",
+        "rake",
+    ]
     for column in numeric_columns:
         catalogue[column] = pd.to_numeric(catalogue[column], errors="coerce")
 
@@ -105,7 +130,12 @@ def load_gwfm_catalogue(file_path):
         invalid_ids = catalogue.loc[invalid_times, "event_id"].tolist()
         raise ValueError("Invalid gWFM dates or times: " + ", ".join(invalid_ids))
 
-    required_numeric = ["longitude", "latitude", "depth_km", "magnitude"]
+    required_numeric = [
+        "longitude",
+        "latitude",
+        "waveform_depth_km",
+        "magnitude",
+    ]
     invalid_numeric = catalogue[required_numeric].isna().any(axis=1)
     if invalid_numeric.any():
         invalid_ids = catalogue.loc[invalid_numeric, "event_id"].tolist()
@@ -124,7 +154,9 @@ def load_gwfm_catalogue(file_path):
             "origin_time",
             "longitude",
             "latitude",
-            "depth_km",
+            "waveform_depth_km",
+            "isc_ehb_depth_km",
+            "global_cmt_depth_km",
             "magnitude",
             "magnitude_type",
             "rake",
@@ -135,6 +167,14 @@ def load_gwfm_catalogue(file_path):
     print("Unusual minus signs normalised:", minus_sign_count)
     print("Missing waveform rakes:", cleaned["rake"].isna().sum())
     print("Rakes wrapped to -180 to 180 degrees:", rakes_to_wrap.sum())
+    print(
+        "Positive ISC-EHB depths:",
+        int((cleaned["isc_ehb_depth_km"] > 0.0).sum()),
+    )
+    print(
+        "Positive Global CMT depths:",
+        int((cleaned["global_cmt_depth_km"] > 0.0).sum()),
+    )
     print("Magnitude types:")
     print(cleaned["magnitude_type"].value_counts().to_string())
 
@@ -199,7 +239,12 @@ def select_gwfm_events(catalogue, selection_file, selection_id_column):
     if problems:
         raise ValueError("Event-ID validation failed: " + "; ".join(problems))
 
-    requested_table = pd.DataFrame({"event_id": requested_ids})
+    requested_table = selection.loc[~blank_rows].copy()
+    if selection_id_column != "event_id":
+        requested_table = requested_table.rename(
+            columns={selection_id_column: "event_id"}
+        )
+    requested_table["event_id"] = requested_ids
     selected = requested_table.merge(
         catalogue,
         on="event_id",
@@ -217,7 +262,9 @@ def validate_selected_earthquakes(earthquakes):
         "origin_time",
         "longitude",
         "latitude",
-        "depth_km",
+        "waveform_depth_km",
+        "isc_ehb_depth_km",
+        "global_cmt_depth_km",
         "magnitude",
         "magnitude_type",
         "rake",
@@ -233,7 +280,13 @@ def validate_selected_earthquakes(earthquakes):
         )
 
     problems = []
-    numeric_columns = ["longitude", "latitude", "depth_km", "magnitude", "rake"]
+    numeric_columns = [
+        "longitude",
+        "latitude",
+        "waveform_depth_km",
+        "magnitude",
+        "rake",
+    ]
     numeric_values = earthquakes[numeric_columns].apply(pd.to_numeric, errors="coerce")
 
     for column in numeric_columns:
@@ -252,7 +305,9 @@ def validate_selected_earthquakes(earthquakes):
             (numeric_values["latitude"] < -90.0)
             | (numeric_values["latitude"] > 90.0)
         ),
-        "negative depth": numeric_values["depth_km"] < 0.0,
+        "non-positive waveform depth": (
+            numeric_values["waveform_depth_km"] <= 0.0
+        ),
         "non-positive magnitude": numeric_values["magnitude"] <= 0.0,
         "rake outside -180 to 180": (
             (numeric_values["rake"] < -180.0) | (numeric_values["rake"] > 180.0)
@@ -280,6 +335,115 @@ def validate_selected_earthquakes(earthquakes):
         )
 
     print("Selected earthquake inputs passed validation:", len(earthquakes))
+
+
+def build_event_depth_table(earthquakes):
+    required_columns = {
+        "event_id",
+        "waveform_depth_km",
+        "isc_ehb_depth_km",
+        "global_cmt_depth_km",
+    }
+    missing_columns = required_columns.difference(earthquakes.columns)
+    if missing_columns:
+        raise ValueError(
+            "Cannot build the depth table because these columns are missing: "
+            + ", ".join(sorted(missing_columns))
+        )
+
+    waveform_depths = pd.to_numeric(
+        earthquakes["waveform_depth_km"], errors="coerce"
+    )
+    isc_depths = pd.to_numeric(
+        earthquakes["isc_ehb_depth_km"], errors="coerce"
+    )
+    embedded_cmt_depths = pd.to_numeric(
+        earthquakes["global_cmt_depth_km"], errors="coerce"
+    )
+    cmt_depths = embedded_cmt_depths.copy()
+    cmt_missing_sentinel = pd.Series(False, index=earthquakes.index)
+
+    if "cmt_depth_km" in earthquakes.columns:
+        supplied_cmt_depths = pd.to_numeric(
+            earthquakes["cmt_depth_km"], errors="coerce"
+        )
+        supplied_valid = supplied_cmt_depths > 0.0
+        embedded_valid = embedded_cmt_depths > 0.0
+        overlap = supplied_valid & embedded_valid
+        conflict = overlap & ~np.isclose(
+            supplied_cmt_depths,
+            embedded_cmt_depths,
+        )
+
+        if conflict.any():
+            conflict_ids = earthquakes.loc[
+                conflict, "event_id"
+            ].astype(str).tolist()
+            raise ValueError(
+                "Supplied and embedded Global CMT depths disagree for: "
+                + ", ".join(conflict_ids)
+            )
+
+        cmt_depths.loc[supplied_valid] = supplied_cmt_depths.loc[
+            supplied_valid
+        ]
+        cmt_missing_sentinel = (
+            supplied_cmt_depths == -10.0
+        ) & ~(cmt_depths > 0.0)
+
+    depth_values = {
+        "waveform": waveform_depths,
+        "isc_ehb": isc_depths,
+        "global_cmt": cmt_depths,
+    }
+    rows = []
+
+    for row_index, earthquake in earthquakes.iterrows():
+        for depth_source, values in depth_values.items():
+            depth_km = values.loc[row_index]
+
+            if pd.isna(depth_km):
+                if (
+                    depth_source == "global_cmt"
+                    and cmt_missing_sentinel.loc[row_index]
+                ):
+                    depth_status = "missing_sentinel"
+                else:
+                    depth_status = "missing"
+            elif depth_km <= 0.0:
+                depth_status = "invalid_nonpositive"
+            else:
+                depth_status = "valid"
+
+            rows.append(
+                {
+                    "event_id": str(earthquake["event_id"]),
+                    "depth_source": depth_source,
+                    "depth_km": depth_km,
+                    "depth_status": depth_status,
+                    "used_in_calculation": depth_status == "valid",
+                }
+            )
+
+    depth_table = pd.DataFrame(rows)
+
+    if depth_table.duplicated(["event_id", "depth_source"]).any():
+        raise ValueError("The event-depth table contains duplicate rows.")
+
+    valid_depths = depth_table[depth_table["depth_status"] == "valid"]
+    for depth_source in depth_values:
+        source_rows = depth_table[
+            depth_table["depth_source"] == depth_source
+        ]
+        valid_count = int((source_rows["depth_status"] == "valid").sum())
+        unavailable_count = int(len(source_rows) - valid_count)
+        print(
+            f"{depth_source} depths: {valid_count} valid, "
+            f"{unavailable_count} unavailable"
+        )
+
+    print("Valid event-depth scenarios:", len(valid_depths))
+    return depth_table
 
 
 def print_distance_summary(scenarios):

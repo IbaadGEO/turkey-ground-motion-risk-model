@@ -4,8 +4,8 @@
 
 The production workflow reads the selected gWFM earthquake catalogue and
 Turkey exposure grid, then repeats the Akkar et al. ground-motion calculation
-for every earthquake-location combination. It includes catalogue loading,
-event selection, nested looping, validation, result files and maps.
+for every valid earthquake-depth-location combination. It includes catalogue
+loading, event selection, nested looping, validation, result files and maps.
 
 ## gWFM preparation
 
@@ -17,14 +17,24 @@ event selection, nested looping, validation, result files and maps.
 | `yyyymmdd` and `hhmm` | `origin_time` |
 | `wlon` | `longitude` |
 | `wlat` | `latitude` |
-| `wzc` | `depth_km` |
+| `wzc` | `waveform_depth_km` |
+| `izc` | `isc_ehb_depth_km` |
+| `czc` | `global_cmt_depth_km` |
 | `mag` | `magnitude` |
 | `mty` | `magnitude_type` |
 | waveform `rk` | `rake` |
 
 Unusual minus signs are changed to normal minus signs before numerical conversion. Rake angles are converted to the range expected by the GMPE.
 
-The supplied 117-event list was matched to the gWFM catalogue using date, time, longitude, latitude and waveform depth. All 117 rows matched one unique event ID.
+The supplied 117-event list was matched to the gWFM catalogue using date,
+time, longitude, latitude and waveform depth. All 117 rows matched one unique
+event ID. Its supplied CMT depths match all 88 overlapping embedded gWFM CMT
+depths and provide six additional positive CMT depths.
+
+The final depth table contains three rows per event: waveform, ISC-EHB and
+Global CMT. A depth is only used when it is positive and finite. The `-10` CMT
+sentinel, six missing ISC-EHB values and one zero ISC-EHB value are recorded
+with statuses rather than passed into the GMPE.
 
 ## Calculation process
 
@@ -32,22 +42,24 @@ The supplied 117-event list was matched to the gWFM catalogue using date, time, 
 2. Load the selected event IDs.
 3. Check for missing or duplicate IDs.
 4. Check the required earthquake values and magnitude types.
-5. Load the 311 exposure locations.
-6. Use an outer loop for earthquakes and an inner loop for locations.
-7. Calculate hypocentral distance for every pair.
-8. Calculate PGA, PGV, SA(0.2 s) and SA(1.0 s).
-9. Pass median PGA through the selected GEM v2026 structural vulnerability
+5. Build the waveform, ISC-EHB and Global CMT depth rows.
+6. Load the 311 exposure locations.
+7. Loop through earthquakes, valid depths and locations.
+8. Calculate hypocentral distance for every scenario.
+9. Calculate PGA, PGV, SA(0.2 s) and SA(1.0 s).
+10. Pass median PGA through the selected GEM v2026 structural vulnerability
    function.
-10. Save the CSV results and maps.
+11. Save the depth table, calculation results and maps.
 
-For 117 earthquakes and 311 locations:
+The 117 events contain 321 usable depth scenarios:
 
 ```text
-117 x 311 = 36,387 earthquake-location pairs
-36,387 x 4 = 145,548 ground-motion rows
+117 waveform + 110 ISC-EHB + 94 Global CMT = 321 valid depths
+321 x 311 = 99,831 earthquake-depth-location pairs
+99,831 x 4 = 399,324 ground-motion rows
 ```
 
-The tested run also produced 36,387 mean structural-loss-ratio rows.
+The tested run also produced 99,831 mean structural-loss-ratio rows.
 
 ## Structural vulnerability selection
 
@@ -71,18 +83,21 @@ Pairs within 200 km: 2182
 Pairs beyond 200 km: 34205
 ```
 
-The rows beyond 200 km are currently retained.
+Those figures are the waveform-depth baseline. Across all three valid depth
+sources, 5,656 pairs are within 200 km and 94,175 are beyond 200 km. The rows
+beyond 200 km are currently retained.
 
 ## Maps
 
 The script creates:
 
 - a map of the 311 exposure locations and all 117 earthquakes; and
-- a PGA map across the exposure grid for event `1421`.
+- a waveform-depth PGA map across the exposure grid for event `1421`.
 
-The PGA map shows exact zero values in grey. Positive values use the bright
-`turbo` colour map on a logarithmic scale so that low non-zero ground motions
-remain distinguishable. Both map types include a black Turkey outline derived
+The PGA map shows exact zero values in grey. Positive values use the
+perceptually uniform `viridis` colour map on a logarithmic scale so that low
+non-zero ground motions remain distinguishable. Both map types include a black
+Turkey outline derived
 from Natural Earth's public-domain `ne_50m_admin_0_countries` dataset,
 version 5.1.2.
 
@@ -100,8 +115,9 @@ Then show:
 2. the earthquake, location and row counts;
 3. `outputs_gwfm/ground_motion_results.csv`;
 4. `outputs_gwfm/structural_loss_ratios.csv`;
-5. `outputs_gwfm/exposure_and_earthquakes.png`; and
-6. `outputs_gwfm/pga_map_1421.png`.
+5. `outputs_gwfm/selected_event_depths.csv`;
+6. `outputs_gwfm/exposure_and_earthquakes.png`; and
+7. `outputs_gwfm/pga_map_1421.png`.
 
 ## Work still outstanding
 

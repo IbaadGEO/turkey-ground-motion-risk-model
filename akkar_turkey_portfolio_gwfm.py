@@ -13,6 +13,7 @@ from openquake.hazardlib.imt import PGA, PGV, SA
 
 from map_plotting import plot_pga_receiver_points, plot_turkey_border
 from prepare_gwfm_catalogue import (
+    build_event_depth_table,
     print_distance_summary,
     select_gwfm_events,
 )
@@ -35,10 +36,16 @@ OUTPUT_FOLDER = Path("outputs_gwfm")
 # Calculation settings
 VS30 = 760.0
 MAP_EVENT_ID = "1421"
+MAP_DEPTH_SOURCE = "waveform"
 RUN_BENCHMARK = True
 AKKAR_MAX_DEPTH_KM = 30.0
 EXPECTED_EARTHQUAKES = 117
 EXPECTED_EXPOSURE_LOCATIONS = 311
+EXPECTED_VALID_DEPTHS = {
+    "waveform": 117,
+    "isc_ehb": 110,
+    "global_cmt": 94,
+}
 VULNERABILITY_FUNCTION_ID = "CR/LFINF/CDL+ERL/H:2/RES"
 VULNERABILITY_MODEL_VERSION = "v2026.0.0"
 VULNERABILITY_MODEL_SHA256 = (
@@ -89,6 +96,7 @@ def load_inputs():
         EVENT_SELECTION_FILE,
         SELECTION_ID_COLUMN,
     )
+    event_depths = build_event_depth_table(earthquakes)
 
     exposure = pd.read_csv(EXPOSURE_FILE)
     exposure = exposure[["location_id", "latitude", "longitude"]].copy()
@@ -112,18 +120,22 @@ def load_inputs():
             f"but loaded {len(exposure)}."
         )
 
-    deep_events = earthquakes["depth_km"] > AKKAR_MAX_DEPTH_KM
+    valid_depths = event_depths[event_depths["depth_status"] == "valid"]
+    valid_depth_counts = valid_depths["depth_source"].value_counts()
+    for depth_source, expected_count in EXPECTED_VALID_DEPTHS.items():
+        actual_count = int(valid_depth_counts.get(depth_source, 0))
+        if actual_count != expected_count:
+            raise ValueError(
+                f"Expected {expected_count} valid {depth_source} depths, "
+                f"but found {actual_count}."
+            )
 
-    print(
-        "Earthquakes at or below 30 km:",
-        int((~deep_events).sum()),
-    )
-    print(
-        "Earthquakes deeper than 30 km:",
-        int(deep_events.sum()),
-    )
+    deep_depths = valid_depths["depth_km"] > AKKAR_MAX_DEPTH_KM
 
-    if deep_events.any():
+    print("Valid depths at or below 30 km:", int((~deep_depths).sum()))
+    print("Valid depths deeper than 30 km:", int(deep_depths.sum()))
+
+    if deep_depths.any():
         print(
             "WARNING: Akkar et al. (2014) states the model is intended "
             "for focal depths not greater than 30 km. Deeper events are "
@@ -131,6 +143,7 @@ def load_inputs():
         )
 
     print("Earthquakes loaded:", len(earthquakes))
+    print("Event-depth rows created:", len(event_depths))
     print("Exposure locations loaded:", len(exposure))
     print(
         "Structural loss ratios use GEM Global Vulnerability Model",
@@ -140,7 +153,7 @@ def load_inputs():
     )
     print("Contents, nonstructural and fatalities models are excluded.")
 
-    return earthquakes, exposure, vulnerability
+    return earthquakes, event_depths, exposure, vulnerability
 
 
 def haversine_distance_km(lat1, lon1, lat2, lon2):
@@ -161,44 +174,53 @@ def haversine_distance_km(lat1, lon1, lat2, lon2):
     return 2.0 * earth_radius_km * np.arcsin(np.sqrt(a))
 
 
-def create_source_receiver_pairs(earthquakes, exposure):
+def create_source_receiver_pairs(earthquakes, event_depths, exposure):
     rows = []
+    valid_depths = event_depths[event_depths["depth_status"] == "valid"]
 
     for _, earthquake in earthquakes.iterrows():
-        for _, location in exposure.iterrows():
-            repi_km = haversine_distance_km(
-                earthquake["latitude"],
-                earthquake["longitude"],
-                location["latitude"],
-                location["longitude"],
-            )
-            rhypo_km = np.hypot(repi_km, earthquake["depth_km"])
+        earthquake_depths = valid_depths[
+            valid_depths["event_id"] == earthquake["event_id"]
+        ]
 
-            rows.append(
-                {
-                    "event_id": earthquake["event_id"],
-                    "origin_time": earthquake["origin_time"],
-                    "magnitude": earthquake["magnitude"],
-                    "magnitude_type": earthquake["magnitude_type"],
-                    "rake": earthquake["rake"],
-                    "source_latitude": earthquake["latitude"],
-                    "source_longitude": earthquake["longitude"],
-                    "source_depth_km": earthquake["depth_km"],
-                    "location_id": location["location_id"],
-                    "receiver_latitude": location["latitude"],
-                    "receiver_longitude": location["longitude"],
-                    "vs30": location["vs30"],
-                    "repi_km": repi_km,
-                    "rhypo_km": rhypo_km,
-                    "source_within_30_km": (
-                        earthquake["depth_km"] <= AKKAR_MAX_DEPTH_KM
-                    ),
-                    "within_200_km": rhypo_km <= 200.0,
-                }
-            )
+        for _, depth in earthquake_depths.iterrows():
+            for _, location in exposure.iterrows():
+                repi_km = haversine_distance_km(
+                    earthquake["latitude"],
+                    earthquake["longitude"],
+                    location["latitude"],
+                    location["longitude"],
+                )
+                rhypo_km = np.hypot(repi_km, depth["depth_km"])
+
+                rows.append(
+                    {
+                        "event_id": earthquake["event_id"],
+                        "origin_time": earthquake["origin_time"],
+                        "magnitude": earthquake["magnitude"],
+                        "magnitude_type": earthquake["magnitude_type"],
+                        "rake": earthquake["rake"],
+                        "source_latitude": earthquake["latitude"],
+                        "source_longitude": earthquake["longitude"],
+                        "depth_source": depth["depth_source"],
+                        "source_depth_km": depth["depth_km"],
+                        "location_id": location["location_id"],
+                        "receiver_latitude": location["latitude"],
+                        "receiver_longitude": location["longitude"],
+                        "vs30": location["vs30"],
+                        "repi_km": repi_km,
+                        "rhypo_km": rhypo_km,
+                        "source_within_30_km": (
+                            depth["depth_km"] <= AKKAR_MAX_DEPTH_KM
+                        ),
+                        "within_200_km": rhypo_km <= 200.0,
+                    }
+                )
 
     scenarios = pd.DataFrame(rows)
     print("Source-receiver pairs created:", len(scenarios))
+    print("Pairs by depth source:")
+    print(scenarios["depth_source"].value_counts().to_string())
     print_distance_summary(scenarios)
     return scenarios
 
@@ -307,15 +329,20 @@ def plot_inputs(earthquakes, exposure):
 
 def plot_pga_map(structural_loss):
     map_results = structural_loss[
-        structural_loss["event_id"] == MAP_EVENT_ID
+        (structural_loss["event_id"] == MAP_EVENT_ID)
+        & (structural_loss["depth_source"] == MAP_DEPTH_SOURCE)
     ].copy()
 
     if map_results.empty:
-        largest_event = structural_loss.sort_values(
+        selected_depth_results = structural_loss[
+            structural_loss["depth_source"] == MAP_DEPTH_SOURCE
+        ]
+        largest_event = selected_depth_results.sort_values(
             "magnitude", ascending=False
         ).iloc[0]
         map_results = structural_loss[
-            structural_loss["event_id"] == largest_event["event_id"]
+            (structural_loss["event_id"] == largest_event["event_id"])
+            & (structural_loss["depth_source"] == MAP_DEPTH_SOURCE)
         ].copy()
 
     event = map_results.iloc[0]
@@ -337,7 +364,7 @@ def plot_pga_map(structural_loss):
 
     ax.set_title(
         f"Median PGA for gWFM event {event_id}\n"
-        f"Mw {event['magnitude']:.2f}, waveform depth "
+        f"Mw {event['magnitude']:.2f}, {event['depth_source']} depth "
         f"{event['source_depth_km']:.1f} km"
     )
     set_map_shape(ax, map_results["receiver_latitude"])
@@ -359,14 +386,22 @@ def main():
     if RUN_BENCHMARK:
         run_benchmark()
 
-    earthquakes, exposure, vulnerability = load_inputs()
-    scenarios = create_source_receiver_pairs(earthquakes, exposure)
+    earthquakes, event_depths, exposure, vulnerability = load_inputs()
+    scenarios = create_source_receiver_pairs(
+        earthquakes,
+        event_depths,
+        exposure,
+    )
     results = calculate_ground_motion(scenarios)
     structural_loss = calculate_structural_loss(results, vulnerability)
 
     results.to_csv(OUTPUT_FOLDER / "ground_motion_results.csv", index=False)
     structural_loss.to_csv(
         OUTPUT_FOLDER / "structural_loss_ratios.csv",
+        index=False,
+    )
+    event_depths.to_csv(
+        OUTPUT_FOLDER / "selected_event_depths.csv",
         index=False,
     )
 

@@ -10,7 +10,7 @@ TURKEY_BOUNDARY_FILE = (
 )
 TURKEY_BORDER_COLOR = "black"
 ZERO_PGA_COLOR = "#bdbdbd"
-POSITIVE_PGA_COLOR_MAP = "turbo"
+POSITIVE_PGA_COLOR_MAP = "viridis"
 
 
 def load_turkey_boundary_rings(boundary_file=TURKEY_BOUNDARY_FILE):

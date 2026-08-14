@@ -63,9 +63,11 @@ The tested run also produced 99,831 mean structural-loss-ratio rows.
 
 ## Structural vulnerability selection
 
-The project uses function `CR/LFINF/CDL+ERL/H:2/RES` from the GEM Global
-Vulnerability Model `v2026.0.0`. The function is an exact taxonomy match and
-uses PGA in g, so the existing ground-motion measures do not need to change.
+The project uses function `MUR+CLBRS/LWAL/CDN+ERN/H:1/RES` from the GEM Global
+Vulnerability Model `v2026.0.0`. It represents a one-storey residential,
+unreinforced solid-clay-brick masonry building with load-bearing walls, no
+design code and no earthquake-resistant design. The function uses PGA in g,
+so the existing ground-motion measures do not need to change.
 
 Only `vulnerability_structural.xml` is loaded. Contents, nonstructural and
 fatalities/occupants models are excluded. The output is the curve's mean

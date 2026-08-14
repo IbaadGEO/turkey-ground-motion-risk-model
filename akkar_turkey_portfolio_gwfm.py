@@ -11,7 +11,11 @@ import pandas as pd
 from openquake.hazardlib.gsim.akkar_2014 import AkkarEtAlRhyp2014
 from openquake.hazardlib.imt import PGA, PGV, SA
 
-from map_plotting import plot_pga_receiver_points, plot_turkey_border
+from map_plotting import (
+    plot_pga_receiver_points,
+    plot_turkey_border,
+    plot_vs30_map,
+)
 from prepare_gwfm_catalogue import (
     build_event_depth_table,
     print_distance_summary,
@@ -45,7 +49,7 @@ EXPECTED_VALID_DEPTHS = {
     "isc_ehb": 110,
     "global_cmt": 94,
 }
-VULNERABILITY_FUNCTION_ID = "CR/LFINF/CDL+ERL/H:2/RES"
+VULNERABILITY_FUNCTION_ID = "MUR+CLBRS/LWAL/CDN+ERN/H:1/RES"
 VULNERABILITY_MODEL_VERSION = "v2026.0.0"
 VULNERABILITY_MODEL_SHA256 = (
     "ABAAD2CBD313780E370DC1DD97DB01061FB03E58D5FA5C7590B2A879019F6116"
@@ -427,6 +431,7 @@ def main():
 
     plot_inputs(earthquakes, exposure)
     plot_pga_map(structural_loss)
+    plot_vs30_map(exposure, OUTPUT_FOLDER / "vs30_map.png", "vs30")
 
     print("Finished. Results were saved in:", OUTPUT_FOLDER)
 

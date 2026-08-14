@@ -1,4 +1,6 @@
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import matplotlib
 
@@ -13,10 +15,12 @@ from map_plotting import (
     POSITIVE_PGA_COLOR_MAP,
     TURKEY_BORDER_COLOR,
     TURKEY_BOUNDARY_FILE,
+    VS30_COLOR_MAP,
     ZERO_PGA_COLOR,
     load_turkey_boundary_rings,
     plot_pga_receiver_points,
     plot_turkey_border,
+    plot_vs30_map,
 )
 
 
@@ -130,6 +134,29 @@ class PlotPgaReceiverPointsTests(unittest.TestCase):
 
                 with self.assertRaisesRegex(ValueError, message):
                     plot_pga_receiver_points(ax, map_results)
+
+
+class PlotVs30MapTests(unittest.TestCase):
+    def test_vs30_colour_map_is_viridis(self):
+        self.assertEqual(VS30_COLOR_MAP, "viridis")
+
+    def test_vs30_map_is_saved(self):
+        exposure = pd.DataFrame(
+            {
+                "longitude": [29.0, 35.0, 41.0],
+                "latitude": [40.0, 38.0, 39.0],
+                "vs30_m_s": [250.0, 500.0, 800.0],
+                "vs30_status": ["direct", "nearest_valid", "direct"],
+            }
+        )
+
+        with TemporaryDirectory() as temporary_directory:
+            output_file = Path(temporary_directory) / "vs30_map.png"
+            returned_file = plot_vs30_map(exposure, output_file)
+
+            self.assertEqual(returned_file, output_file)
+            self.assertTrue(output_file.exists())
+            self.assertGreater(output_file.stat().st_size, 0)
 
 
 if __name__ == "__main__":

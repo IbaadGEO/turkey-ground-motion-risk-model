@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
 import numpy as np
 
 
@@ -11,6 +12,7 @@ TURKEY_BOUNDARY_FILE = (
 TURKEY_BORDER_COLOR = "black"
 ZERO_PGA_COLOR = "#bdbdbd"
 POSITIVE_PGA_COLOR_MAP = "viridis"
+VS30_COLOR_MAP = "viridis"
 
 
 def load_turkey_boundary_rings(boundary_file=TURKEY_BOUNDARY_FILE):
@@ -169,3 +171,73 @@ def plot_pga_receiver_points(ax, map_results):
         linewidth=0.2,
         zorder=3,
     )
+
+
+def plot_vs30_map(exposure, output_file, vs30_column="vs30_m_s"):
+    required_columns = {"longitude", "latitude", vs30_column}
+    missing_columns = required_columns.difference(exposure.columns)
+
+    if missing_columns:
+        missing_text = ", ".join(sorted(missing_columns))
+        raise ValueError(f"Vs30 map data is missing columns: {missing_text}.")
+
+    try:
+        longitudes = exposure["longitude"].to_numpy(float)
+        latitudes = exposure["latitude"].to_numpy(float)
+        vs30_values = exposure[vs30_column].to_numpy(float)
+    except (TypeError, ValueError) as error:
+        raise ValueError(
+            "Vs30 map coordinates and values must be numeric."
+        ) from error
+
+    if len(exposure) == 0:
+        raise ValueError("Vs30 map data cannot be empty.")
+    if not np.isfinite(longitudes).all() or not np.isfinite(latitudes).all():
+        raise ValueError("Vs30 map coordinates must be finite.")
+    if not np.isfinite(vs30_values).all():
+        raise ValueError("Vs30 map values must be finite.")
+    if (vs30_values <= 0.0).any():
+        raise ValueError("Vs30 map values must be greater than zero.")
+
+    fig, ax = plt.subplots(figsize=(11, 6))
+    plot_turkey_border(ax)
+    points = ax.scatter(
+        longitudes,
+        latitudes,
+        c=vs30_values,
+        cmap=VS30_COLOR_MAP,
+        s=38,
+        edgecolor="black",
+        linewidth=0.25,
+        zorder=3,
+    )
+
+    if "vs30_status" in exposure.columns:
+        nearest_mask = exposure["vs30_status"].astype(str) == "nearest_valid"
+        if nearest_mask.any():
+            ax.scatter(
+                longitudes[nearest_mask],
+                latitudes[nearest_mask],
+                s=75,
+                facecolors="none",
+                edgecolors="red",
+                linewidth=1.0,
+                label="Nearest valid raster cell",
+                zorder=4,
+            )
+            ax.legend()
+
+    ax.set_xlabel("Longitude")
+    ax.set_ylabel("Latitude")
+    ax.set_title("Vs30 values at exposure-grid locations")
+    ax.set_aspect(1 / np.cos(np.deg2rad(float(latitudes.mean()))))
+    colorbar = fig.colorbar(points, ax=ax)
+    colorbar.set_label("Vs30 (m/s)")
+    fig.tight_layout()
+
+    output_path = Path(output_file)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output_path, dpi=150)
+    plt.close(fig)
+
+    return output_path

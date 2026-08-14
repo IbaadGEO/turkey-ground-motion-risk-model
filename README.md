@@ -34,6 +34,9 @@ python akkar_turkey_portfolio_gwfm.py
 The main run uses `data/turkey_50km_land_grid_vs30.csv`, so the large Vs30
 raster is not needed for a normal run.
 
+The run also creates `outputs_gwfm/vs30_map.png` so the sampled values can be
+checked visually.
+
 ## Vs30 Data
 
 Vs30 values come from the 9 arcsecond TRVs30GeoM model of Turkey:
@@ -65,8 +68,9 @@ Results are saved in `outputs_gwfm`:
 - `selected_event_depths.csv`: available and missing depths for each event;
 - `ground_motion_results.csv`: calculated ground-motion values;
 - `structural_loss_ratios.csv`: estimated structural loss ratios;
-- `exposure_and_earthquakes.png`: exposure grid and earthquake map; and
-- `pga_map_1421.png`: example PGA map using waveform depth.
+- `exposure_and_earthquakes.png`: exposure grid and earthquake map;
+- `pga_map_1421.png`: example PGA map using waveform depth; and
+- `vs30_map.png`: Vs30 values across the exposure grid.
 
 ## Current Limitations
 

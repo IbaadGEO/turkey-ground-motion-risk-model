@@ -2,12 +2,14 @@ from pathlib import Path
 
 import pandas as pd
 
+from map_plotting import plot_vs30_map
 from vs30_sampling import sample_vs30_raster
 
 
 EXPOSURE_FILE = Path("data/turkey_50km_land_grid.csv")
 VS30_RASTER_FILE = Path("data/external/TRVs30GeoM_9Arcsec.tif")
 OUTPUT_FILE = Path("data/turkey_50km_land_grid_vs30.csv")
+MAP_OUTPUT_FILE = Path("outputs_gwfm/vs30_map.png")
 
 INPUT_CRS = "EPSG:4326"
 MINIMUM_VS30_M_S = 150.0
@@ -35,6 +37,7 @@ def main():
         raise ValueError("Some exposure locations do not have a usable Vs30 value.")
 
     sampled.to_csv(OUTPUT_FILE, index=False)
+    plot_vs30_map(sampled, MAP_OUTPUT_FILE)
 
     print("Exposure locations:", len(sampled))
     print("Vs30 status counts:")
@@ -47,6 +50,7 @@ def main():
         "m/s",
     )
     print("Saved:", OUTPUT_FILE)
+    print("Saved:", MAP_OUTPUT_FILE)
 
 
 if __name__ == "__main__":

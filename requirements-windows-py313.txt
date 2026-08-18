@@ -1,0 +1,2 @@
+-r https://github.com/gem/oq-engine/raw/engine-3.26/requirements-py313-win64.txt
+-r requirements.txt

@@ -1,0 +1,7 @@
+comparison_source,depth_direction,pair_count,event_count,median_depth_difference_km,median_signed_pga_change_percent,mean_signed_loss_ratio_difference
+global_cmt,deeper,21148,68,7.0,-0.04320072159679418,-7.896779818461382e-06
+global_cmt,same,622,2,0.0,0.0,0.0
+global_cmt,shallower,6220,20,-7.0,0.0683595599935162,8.489045706206913e-07
+isc_ehb,deeper,17727,57,7.0,-0.0502189256370543,-3.97483434064492e-06
+isc_ehb,same,2488,8,0.0,0.0,0.0
+isc_ehb,shallower,7775,25,-5.0,0.020440060598360964,1.7465134221199004e-06

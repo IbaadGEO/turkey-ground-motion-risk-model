@@ -587,10 +587,9 @@ def main():
         index=False,
     )
 
-    common_event_summary.to_csv(
-        OUTPUT_FOLDER / "depth_sensitivity_summary.csv",
-        index=False,
-    )
+    legacy_summary = OUTPUT_FOLDER / "depth_sensitivity_summary.csv"
+    if legacy_summary.exists():
+        legacy_summary.unlink()
 
     plot_pga_sensitivity(common_event_summary)
     plot_loss_sensitivity(common_event_summary)

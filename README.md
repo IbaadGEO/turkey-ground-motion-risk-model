@@ -1,7 +1,7 @@
 # Turkey Ground-Motion Model
 
 This project calculates earthquake ground motion across a 50 km grid of 311
-locations in Turkey. Each location now has its own Vs30 value.
+locations in Turkey. Each location has its own Vs30 value.
 
 It uses 117 selected earthquakes from the gWFM v1.2 catalogue. Where available,
 each earthquake is calculated using three different depth sources:
@@ -16,7 +16,19 @@ vulnerability curve to estimate a mean structural loss ratio between 0 and 1.
 
 ## Setup
 
-The project was tested with Python 3.12 on Windows.
+The project has been run successfully on Windows with Python 3.13.7. A Python
+3.12 Windows setup is also kept for reproducibility.
+
+For Python 3.13:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r requirements-windows-py313.txt
+```
+
+For Python 3.12:
 
 ```powershell
 py -3.12 -m venv .venv
@@ -27,6 +39,8 @@ python -m pip install -r requirements-windows-py312.txt
 
 ## Run
 
+Run the main model first:
+
 ```powershell
 python akkar_turkey_portfolio_gwfm.py
 ```
@@ -36,6 +50,16 @@ raster is not needed for a normal run.
 
 The run also creates `outputs_gwfm/vs30_map.png` so the sampled values can be
 checked visually.
+
+To analyse how catalogue depth changes PGA and structural loss, run:
+
+```powershell
+python depth_sensitivity_analysis.py
+```
+
+The depth-sensitivity analysis uses the structural-loss results from the main
+model. Its main comparison uses the 90 earthquakes that have valid waveform,
+ISC-EHB and Global CMT depths.
 
 ## Vs30 Data
 
@@ -54,7 +78,7 @@ and run:
 python prepare_vs30_grid.py
 ```
 
-The tested run produces:
+The tested main run produces:
 
 - 321 valid earthquake-depth combinations;
 - 99,831 earthquake-depth-location combinations;
@@ -63,7 +87,7 @@ The tested run produces:
 
 ## Outputs
 
-Results are saved in `outputs_gwfm`:
+Main-model results are saved in `outputs_gwfm`:
 
 - `selected_event_depths.csv`: available and missing depths for each event;
 - `ground_motion_results.csv`: calculated ground-motion values;
@@ -71,6 +95,23 @@ Results are saved in `outputs_gwfm`:
 - `exposure_and_earthquakes.png`: exposure grid and earthquake map;
 - `pga_map_1421.png`: example PGA map using waveform depth; and
 - `vs30_map.png`: Vs30 values across the exposure grid.
+
+Depth-sensitivity results are saved in
+`outputs_gwfm/depth_sensitivity_analysis`:
+
+- `depth_sensitivity_common_events_summary.csv`: fair comparison using the
+  earthquakes with all three valid depth sources;
+- `depth_sensitivity_all_available_summary.csv`: all available paired
+  comparisons;
+- `depth_sensitivity_depth_direction_summary.csv`: deeper, shallower and
+  same-depth comparison;
+- `depth_sensitivity_depth_direction_by_distance.csv`: depth direction split
+  by epicentral-distance bin;
+- `depth_sensitivity_common_event_ids.csv`: the common-event list;
+- `pga_sensitivity_by_distance.png`: PGA sensitivity by distance;
+- `loss_sensitivity_by_distance.png`: structural-loss sensitivity by distance;
+  and
+- `event_1421_global_cmt_loss_difference_map.png`: near-field example map.
 
 ## Current Limitations
 

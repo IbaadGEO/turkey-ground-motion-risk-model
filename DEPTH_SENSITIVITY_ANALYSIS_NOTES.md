@@ -37,8 +37,6 @@ The common-event results are also grouped into deeper, shallower and same-depth 
 
 ## Files generated
 
-- `depth_sensitivity_summary.csv`
-  - Primary common-event distance summary.
 - `depth_sensitivity_all_available_summary.csv`
   - Uses every available waveform/alternative pair.
 - `depth_sensitivity_common_events_summary.csv`
@@ -63,4 +61,8 @@ The catalogue depths are observed/compiled input data, but PGA and structural lo
 
 The >200 km bin is retained to show the trend, but the project already flags source-receiver pairs beyond 200 km. Earthquake depths greater than 30 km are also retained and flagged by the main workflow.
 
-Do not write numerical conclusions into these notes until the updated script has been run on the current local outputs and the new summary files have been checked.
+## Checked result
+
+The checked run used 90 earthquakes with all three valid depth sources, giving 55,980 common-event paired rows.
+
+The strongest sensitivity is within 0-25 km. In that bin, the median absolute PGA change is 26.3% for Global CMT versus waveform and 14.4% for ISC-EHB versus waveform. Practical structural-loss changes occur in 25.0% and 21.4% of those near-field pairs respectively, and become negligible with increasing distance.

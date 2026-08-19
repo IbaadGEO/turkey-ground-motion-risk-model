@@ -6,7 +6,7 @@ Test how changing the catalogue depth for the same earthquake changes hypocentra
 
 ## Method
 
-- Use the existing `outputs_gwfm/structural_loss_ratios.csv` produced by the main workflow.
+- Use the existing `outputs_gwfm/complete_pga_structural_loss_table.csv` produced by the main workflow.
 - Treat `waveform` depth as the baseline.
 - Pair the same `event_id` and `location_id` with `isc_ehb` and `global_cmt` where those depths are available.
 - Keep magnitude, rake, source location, receiver location and Vs30 unchanged.

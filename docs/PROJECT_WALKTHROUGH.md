@@ -49,7 +49,10 @@ with statuses rather than passed into the GMPE.
 9. Calculate PGA, PGV, SA(0.2 s) and SA(1.0 s).
 10. Pass median PGA through the selected GEM v2026 structural vulnerability
    function.
-11. Save the depth table, calculation results and maps.
+11. Build a validated complete PGA/structural-loss table with one row for every
+   valid earthquake-depth-location combination.
+12. Build a compact one-row-per-earthquake-depth summary.
+13. Save the depth table, calculation results and maps.
 
 The 117 events contain 321 usable depth scenarios:
 
@@ -59,7 +62,8 @@ The 117 events contain 321 usable depth scenarios:
 99,831 x 4 = 399,324 ground-motion rows
 ```
 
-The tested run also produced 99,831 mean structural-loss-ratio rows.
+The tested run also produces a 99,831-row complete PGA/structural-loss
+table and a 321-row earthquake-depth summary.
 
 ## Structural vulnerability selection
 
@@ -116,10 +120,11 @@ Then show:
 1. the event validation printed in the terminal;
 2. the earthquake, location and row counts;
 3. `outputs_gwfm/ground_motion_results.csv`;
-4. `outputs_gwfm/structural_loss_ratios.csv`;
-5. `outputs_gwfm/selected_event_depths.csv`;
-6. `outputs_gwfm/exposure_and_earthquakes.png`; and
-7. `outputs_gwfm/pga_map_1421.png`.
+4. `outputs_gwfm/complete_pga_structural_loss_table.csv`;
+5. `outputs_gwfm/complete_output/earthquake_depth_pga_loss_summary.csv`;
+6. `outputs_gwfm/selected_event_depths.csv`;
+7. `outputs_gwfm/exposure_and_earthquakes.png`; and
+8. `outputs_gwfm/pga_map_1421.png`.
 
 ## Work still outstanding
 

@@ -13,7 +13,9 @@ from map_plotting import plot_turkey_border
 
 
 BASE_DIR = Path(__file__).resolve().parent
-INPUT_FILE = BASE_DIR / "outputs_gwfm" / "structural_loss_ratios.csv"
+INPUT_FILE = (
+    BASE_DIR / "outputs_gwfm" / "complete_pga_structural_loss_table.csv"
+)
 OUTPUT_FOLDER = BASE_DIR / "outputs_gwfm" / "depth_sensitivity_analysis"
 
 BASELINE_SOURCE = "waveform"
@@ -34,7 +36,7 @@ PRACTICAL_LOSS_CHANGE_THRESHOLD = 1e-6
 def load_results():
     if not INPUT_FILE.is_file():
         raise FileNotFoundError(
-            "Structural-loss results were not found. Run "
+            "Complete PGA/loss results were not found. Run "
             "akkar_turkey_portfolio_gwfm.py first."
         )
 

@@ -36,6 +36,13 @@ VULNERABILITY_FILE = Path(
     "data/gem_vulnerability_v2026/vulnerability_structural.xml"
 )
 OUTPUT_FOLDER = Path("outputs_gwfm")
+COMPLETE_PGA_LOSS_FILE = (
+    OUTPUT_FOLDER / "complete_pga_structural_loss_table.csv"
+)
+COMPLETE_OUTPUT_FOLDER = OUTPUT_FOLDER / "complete_output"
+EARTHQUAKE_DEPTH_SUMMARY_FILE = (
+    COMPLETE_OUTPUT_FOLDER / "earthquake_depth_pga_loss_summary.csv"
+)
 
 # Calculation settings
 MAP_EVENT_ID = "1421"
@@ -49,6 +56,10 @@ EXPECTED_VALID_DEPTHS = {
     "isc_ehb": 110,
     "global_cmt": 94,
 }
+EXPECTED_VALID_EVENT_DEPTHS = sum(EXPECTED_VALID_DEPTHS.values())
+EXPECTED_COMPLETE_PGA_LOSS_ROWS = (
+    EXPECTED_VALID_EVENT_DEPTHS * EXPECTED_EXPOSURE_LOCATIONS
+)
 VULNERABILITY_FUNCTION_ID = "MUR+CLBRS/LWAL/CDN+ERN/H:1/RES"
 VULNERABILITY_MODEL_VERSION = "v2026.0.0"
 VULNERABILITY_MODEL_SHA256 = (
@@ -310,6 +321,261 @@ def calculate_structural_loss(results, vulnerability):
     return structural_loss
 
 
+
+
+def build_complete_pga_structural_loss_table(
+    structural_loss,
+    expected_valid_depths=None,
+    expected_exposure_locations=None,
+):
+    """Create and validate one PGA/loss row per event-depth-location scenario."""
+
+    if expected_valid_depths is None:
+        expected_valid_depths = EXPECTED_VALID_DEPTHS
+    if expected_exposure_locations is None:
+        expected_exposure_locations = EXPECTED_EXPOSURE_LOCATIONS
+
+    columns = [
+        "event_id",
+        "origin_time",
+        "magnitude",
+        "magnitude_type",
+        "rake",
+        "source_latitude",
+        "source_longitude",
+        "depth_source",
+        "source_depth_km",
+        "location_id",
+        "receiver_latitude",
+        "receiver_longitude",
+        "vs30",
+        "repi_km",
+        "rhypo_km",
+        "source_within_30_km",
+        "within_200_km",
+        "median_pga_g",
+        "sigma_total_ln",
+        "structural_loss_ratio_mean",
+        "structural_loss_ratio_cov",
+        "vulnerability_function_id",
+        "vulnerability_model_version",
+        "vulnerability_distribution",
+        "asset_category",
+        "loss_category",
+    ]
+
+    missing_columns = set(columns).difference(structural_loss.columns)
+    if missing_columns:
+        missing_text = ", ".join(sorted(missing_columns))
+        raise ValueError(
+            f"Structural-loss results are missing columns: {missing_text}."
+        )
+
+    complete = structural_loss[columns].copy()
+    complete = complete.rename(columns={"vs30": "vs30_m_s"})
+
+    expected_event_depths = sum(expected_valid_depths.values())
+    expected_rows = expected_event_depths * expected_exposure_locations
+
+    if len(complete) != expected_rows:
+        raise ValueError(
+            f"Expected {expected_rows} complete PGA/loss rows, "
+            f"but found {len(complete)}."
+        )
+
+    scenario_key = ["event_id", "depth_source", "location_id"]
+    if complete.duplicated(scenario_key).any():
+        raise ValueError(
+            "Complete PGA/loss table contains duplicate event-depth-location rows."
+        )
+
+    required_numeric = [
+        "source_depth_km",
+        "vs30_m_s",
+        "repi_km",
+        "rhypo_km",
+        "median_pga_g",
+        "structural_loss_ratio_mean",
+    ]
+    if not np.isfinite(complete[required_numeric].to_numpy(float)).all():
+        raise ValueError(
+            "Complete PGA/loss table contains non-finite numerical values."
+        )
+
+    if (complete["median_pga_g"] <= 0.0).any():
+        raise ValueError("Every complete-table PGA value must be greater than zero.")
+
+    if not complete["structural_loss_ratio_mean"].between(
+        0.0,
+        1.0,
+        inclusive="both",
+    ).all():
+        raise ValueError("Structural loss ratios must be between zero and one.")
+
+    expected_rows_by_source = {
+        depth_source: event_count * expected_exposure_locations
+        for depth_source, event_count in expected_valid_depths.items()
+    }
+    actual_rows_by_source = complete["depth_source"].value_counts().to_dict()
+
+    for depth_source, expected_count in expected_rows_by_source.items():
+        actual_count = int(actual_rows_by_source.get(depth_source, 0))
+        if actual_count != expected_count:
+            raise ValueError(
+                f"Expected {expected_count} {depth_source} rows, "
+                f"but found {actual_count}."
+            )
+
+    scenario_sizes = complete.groupby(
+        ["event_id", "depth_source"],
+        sort=False,
+    ).size()
+
+    if len(scenario_sizes) != expected_event_depths:
+        raise ValueError(
+            f"Expected {expected_event_depths} event-depth groups, "
+            f"but found {len(scenario_sizes)}."
+        )
+
+    if not (scenario_sizes == expected_exposure_locations).all():
+        raise ValueError(
+            "Every valid event-depth scenario must contain exactly "
+            f"{expected_exposure_locations} receiver locations."
+        )
+
+    depth_order = {"waveform": 0, "isc_ehb": 1, "global_cmt": 2}
+    complete["_depth_order"] = complete["depth_source"].map(depth_order)
+    complete = complete.sort_values(
+        ["origin_time", "event_id", "_depth_order", "location_id"]
+    ).drop(columns="_depth_order")
+    complete = complete.reset_index(drop=True)
+
+    print("Complete PGA/loss table rows:", len(complete))
+    print("Complete PGA/loss event-depth groups:", len(scenario_sizes))
+    return complete
+
+
+def build_earthquake_depth_pga_loss_summary(
+    complete_table,
+    expected_valid_depths=None,
+    expected_exposure_locations=None,
+):
+    """Summarise the complete receiver table to one row per event and depth."""
+
+    if expected_valid_depths is None:
+        expected_valid_depths = EXPECTED_VALID_DEPTHS
+    if expected_exposure_locations is None:
+        expected_exposure_locations = EXPECTED_EXPOSURE_LOCATIONS
+
+    required_columns = {
+        "event_id",
+        "origin_time",
+        "magnitude",
+        "magnitude_type",
+        "rake",
+        "source_latitude",
+        "source_longitude",
+        "depth_source",
+        "source_depth_km",
+        "source_within_30_km",
+        "location_id",
+        "within_200_km",
+        "repi_km",
+        "rhypo_km",
+        "median_pga_g",
+        "structural_loss_ratio_mean",
+    }
+    missing_columns = required_columns.difference(complete_table.columns)
+    if missing_columns:
+        missing_text = ", ".join(sorted(missing_columns))
+        raise ValueError(
+            f"Complete PGA/loss table is missing columns: {missing_text}."
+        )
+
+    group_columns = [
+        "event_id",
+        "origin_time",
+        "magnitude",
+        "magnitude_type",
+        "rake",
+        "source_latitude",
+        "source_longitude",
+        "depth_source",
+        "source_depth_km",
+        "source_within_30_km",
+    ]
+
+    summary = (
+        complete_table.groupby(group_columns, sort=False, dropna=False)
+        .agg(
+            receiver_count=("location_id", "size"),
+            receivers_within_200_km=("within_200_km", "sum"),
+            minimum_repi_km=("repi_km", "min"),
+            minimum_rhypo_km=("rhypo_km", "min"),
+            median_pga_g=("median_pga_g", "median"),
+            mean_pga_g=("median_pga_g", "mean"),
+            maximum_pga_g=("median_pga_g", "max"),
+            median_structural_loss_ratio=(
+                "structural_loss_ratio_mean",
+                "median",
+            ),
+            mean_structural_loss_ratio=(
+                "structural_loss_ratio_mean",
+                "mean",
+            ),
+            maximum_structural_loss_ratio=(
+                "structural_loss_ratio_mean",
+                "max",
+            ),
+            locations_with_nonzero_structural_loss=(
+                "structural_loss_ratio_mean",
+                lambda values: int((values > 0.0).sum()),
+            ),
+        )
+        .reset_index()
+    )
+
+    summary["receiver_count"] = summary["receiver_count"].astype(int)
+    summary["receivers_within_200_km"] = (
+        summary["receivers_within_200_km"].astype(int)
+    )
+    summary["locations_with_nonzero_structural_loss"] = (
+        summary["locations_with_nonzero_structural_loss"].astype(int)
+    )
+
+    expected_event_depths = sum(expected_valid_depths.values())
+    if len(summary) != expected_event_depths:
+        raise ValueError(
+            f"Expected {expected_event_depths} earthquake-depth summary rows, "
+            f"but found {len(summary)}."
+        )
+
+    if not (summary["receiver_count"] == expected_exposure_locations).all():
+        raise ValueError(
+            "Each earthquake-depth summary row must represent exactly "
+            f"{expected_exposure_locations} receiver locations."
+        )
+
+    summary_counts = summary["depth_source"].value_counts()
+    for depth_source, expected_count in expected_valid_depths.items():
+        actual_count = int(summary_counts.get(depth_source, 0))
+        if actual_count != expected_count:
+            raise ValueError(
+                f"Expected {expected_count} {depth_source} summary rows, "
+                f"but found {actual_count}."
+            )
+
+    depth_order = {"waveform": 0, "isc_ehb": 1, "global_cmt": 2}
+    summary["_depth_order"] = summary["depth_source"].map(depth_order)
+    summary = summary.sort_values(
+        ["origin_time", "event_id", "_depth_order"]
+    ).drop(columns="_depth_order")
+    summary = summary.reset_index(drop=True)
+
+    print("Earthquake-depth PGA/loss summary rows:", len(summary))
+    return summary
+
+
 def set_map_shape(ax, latitudes):
     mean_latitude = float(pd.Series(latitudes).mean())
     ax.set_aspect(1.0 / np.cos(np.radians(mean_latitude)))
@@ -418,10 +684,19 @@ def main():
     )
     results = calculate_ground_motion(scenarios)
     structural_loss = calculate_structural_loss(results, vulnerability)
+    complete_pga_loss = build_complete_pga_structural_loss_table(
+        structural_loss
+    )
+    earthquake_depth_summary = build_earthquake_depth_pga_loss_summary(
+        complete_pga_loss
+    )
+
+    COMPLETE_OUTPUT_FOLDER.mkdir(parents=True, exist_ok=True)
 
     results.to_csv(OUTPUT_FOLDER / "ground_motion_results.csv", index=False)
-    structural_loss.to_csv(
-        OUTPUT_FOLDER / "structural_loss_ratios.csv",
+    complete_pga_loss.to_csv(COMPLETE_PGA_LOSS_FILE, index=False)
+    earthquake_depth_summary.to_csv(
+        EARTHQUAKE_DEPTH_SUMMARY_FILE,
         index=False,
     )
     event_depths.to_csv(
@@ -429,10 +704,16 @@ def main():
         index=False,
     )
 
+    legacy_structural_loss_file = OUTPUT_FOLDER / "structural_loss_ratios.csv"
+    if legacy_structural_loss_file.exists():
+        legacy_structural_loss_file.unlink()
+
     plot_inputs(earthquakes, exposure)
     plot_pga_map(structural_loss)
     plot_vs30_map(exposure, OUTPUT_FOLDER / "vs30_map.png", "vs30")
 
+    print("Complete PGA/loss table:", COMPLETE_PGA_LOSS_FILE)
+    print("Earthquake-depth summary:", EARTHQUAKE_DEPTH_SUMMARY_FILE)
     print("Finished. Results were saved in:", OUTPUT_FOLDER)
 
 

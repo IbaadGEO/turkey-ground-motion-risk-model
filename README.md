@@ -57,9 +57,9 @@ To analyse how catalogue depth changes PGA and structural loss, run:
 python depth_sensitivity_analysis.py
 ```
 
-The depth-sensitivity analysis uses the structural-loss results from the main
-model. Its main comparison uses the 90 earthquakes that have valid waveform,
-ISC-EHB and Global CMT depths.
+The depth-sensitivity analysis uses the complete PGA/structural-loss table
+from the main model. Its main comparison uses the 90 earthquakes that have
+valid waveform, ISC-EHB and Global CMT depths.
 
 ## Vs30 Data
 
@@ -82,8 +82,9 @@ The tested main run produces:
 
 - 321 valid earthquake-depth combinations;
 - 99,831 earthquake-depth-location combinations;
-- 399,324 ground-motion rows; and
-- 99,831 structural-loss-ratio rows.
+- 399,324 ground-motion rows;
+- 99,831 complete PGA/structural-loss rows; and
+- 321 earthquake-depth summary rows.
 
 ## Outputs
 
@@ -91,7 +92,10 @@ Main-model results are saved in `outputs_gwfm`:
 
 - `selected_event_depths.csv`: available and missing depths for each event;
 - `ground_motion_results.csv`: calculated ground-motion values;
-- `structural_loss_ratios.csv`: estimated structural loss ratios;
+- `complete_pga_structural_loss_table.csv`: one row for every valid
+  earthquake-depth-location scenario, with PGA and mean structural loss ratio;
+- `complete_output/earthquake_depth_pga_loss_summary.csv`: one compact row for
+  each of the 321 valid earthquake-depth combinations;
 - `exposure_and_earthquakes.png`: exposure grid and earthquake map;
 - `pga_map_1421.png`: example PGA map using waveform depth; and
 - `vs30_map.png`: Vs30 values across the exposure grid.
@@ -112,6 +116,28 @@ Depth-sensitivity results are saved in
 - `loss_sensitivity_by_distance.png`: structural-loss sensitivity by distance;
   and
 - `event_1421_global_cmt_loss_difference_map.png`: near-field example map.
+
+## Complete PGA and structural-loss output
+
+`complete_pga_structural_loss_table.csv` is the main combined output requested
+for comparing all earthquakes at all available depths. It contains 99,831 rows:
+one row for each valid event, depth source and receiver location. The key
+columns are `event_id`, `depth_source`, `source_depth_km`, `location_id`,
+`repi_km`, `rhypo_km`, `median_pga_g` and `structural_loss_ratio_mean`.
+
+The code validates that the table contains 36,387 waveform rows, 34,210
+ISC-EHB rows and 29,234 Global CMT rows, with exactly 311 receiver locations
+for every valid earthquake-depth combination. PGA values must be positive and
+structural loss ratios must be between zero and one.
+
+The compact
+`complete_output/earthquake_depth_pga_loss_summary.csv` contains 321 rows,
+one per valid earthquake-depth combination, with median, mean and maximum PGA,
+median, mean and maximum structural loss ratio, minimum distances and receiver
+counts.
+
+The 99,831-row complete CSV is a generated output and is ignored by Git. The
+321-row summary is small enough to keep with the repository outputs.
 
 ## Current Limitations
 

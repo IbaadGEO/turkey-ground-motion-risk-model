@@ -51,9 +51,11 @@ The common-event results are also grouped into deeper, shallower and same-depth 
   - Median absolute PGA change for the common-event set.
 - `loss_sensitivity_by_distance.png`
   - Mean and 95th percentile absolute loss-ratio difference for the common-event set.
-- `event_1421_global_cmt_loss_difference_map.png`
-  - Near-field map of the geographic loss-ratio difference for event 1421,
-    using receivers within 150 km.
+
+The event-specific presentation example is now handled separately by
+`iris_event_depth_analysis.py`. It uses the 24 January 2020 Mww 6.7 Iris event
+and does not alter the validated 117-event catalogue-wide depth-sensitivity
+analysis.
 
 ## Important interpretation
 

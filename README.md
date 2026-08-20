@@ -61,6 +61,21 @@ The depth-sensitivity analysis uses the complete PGA/structural-loss table
 from the main model. Its main comparison uses the 90 earthquakes that have
 valid waveform, ISC-EHB and Global CMT depths.
 
+To regenerate the presentation-ready catalogue-wide PGA and loss figures
+without changing the numerical analysis, run:
+
+```powershell
+python presentation_figures.py
+```
+
+To run the separate 24 January 2020 Mww 6.7 Iris-event presentation example,
+including its PGA-depth figure, loss-difference map and exact GEM
+vulnerability curve, run:
+
+```powershell
+python iris_event_depth_analysis.py
+```
+
 ## Vs30 Data
 
 Vs30 values come from the 9 arcsecond TRVs30GeoM model of Turkey:
@@ -112,10 +127,24 @@ Depth-sensitivity results are saved in
 - `depth_sensitivity_depth_direction_by_distance.csv`: depth direction split
   by epicentral-distance bin;
 - `depth_sensitivity_common_event_ids.csv`: the common-event list;
-- `pga_sensitivity_by_distance.png`: PGA sensitivity by distance;
-- `loss_sensitivity_by_distance.png`: structural-loss sensitivity by distance;
-  and
-- `event_1421_global_cmt_loss_difference_map.png`: near-field example map.
+- `pga_sensitivity_by_distance.png`: PGA sensitivity by distance; and
+- `loss_sensitivity_by_distance.png`: structural-loss sensitivity by distance.
+
+Presentation-specific Iris-event outputs are saved in
+`outputs_gwfm/iris_event_analysis`:
+
+- `iris_event_complete_results.csv`: all 3 depth scenarios across 311 receivers;
+- `iris_event_depth_summary.csv`: compact summary for the 10, 12 and 14 km depths;
+- `iris_event_gCMT_minus_analysed_map_data.csv`: receiver-level values behind the
+  loss-difference map;
+- `iris_event_pga_vs_depth.png`: PGA response to the three depth scenarios; and
+- `iris_event_gCMT_minus_analysed_loss_difference_map.png`: gCMT minus analysed
+  structural-loss difference.
+
+The exact GEM structural vulnerability curve used by the model is also saved as:
+
+- `outputs_gwfm/structural_vulnerability_curve.png`; and
+- `outputs_gwfm/structural_vulnerability_curve_points.csv`.
 
 ## Complete PGA and structural-loss output
 
@@ -147,3 +176,5 @@ The 99,831-row complete CSV is a generated output and is ignored by Git. The
 - Structural loss ratios are not insured or monetary loss estimates.
 - The GEM vulnerability data are for non-commercial use under the included
   licence.
+- `vs30_map.png` shows the 311 sampled receiver values. A full-raster
+  TRVs30GeoM-versus-sampled-grid comparison figure is still outstanding.

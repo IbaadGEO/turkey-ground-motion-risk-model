@@ -128,6 +128,7 @@ Then show:
 
 ## Work still outstanding
 
+- Add a full-raster TRVs30GeoM-versus-311-sampled-receiver comparison figure.
 - Add a location-specific building inventory or taxonomy mixture if the model
   is extended beyond the current representative structural scenario.
 - Confirm whether the seven nearest-cell Vs30 replacements are acceptable.

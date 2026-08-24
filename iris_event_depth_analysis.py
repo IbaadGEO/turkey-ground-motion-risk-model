@@ -1,4 +1,4 @@
-"""Generate Iris-event presentation results using the project's existing GMPE and vulnerability model."""
+"""Generate 2020 Elazığ-Sivrice presentation results using the project's existing GMPE and vulnerability model."""
 
 from pathlib import Path
 
@@ -89,7 +89,7 @@ def build_scenarios(exposure):
     scenarios = pd.DataFrame(rows)
     expected = len(DEPTH_SCENARIOS) * len(exposure)
     if len(scenarios) != expected:
-        raise ValueError(f"Expected {expected} Iris scenario rows, found {len(scenarios)}.")
+        raise ValueError(f"Expected {expected} Elazığ-Sivrice scenario rows, found {len(scenarios)}.")
     return scenarios
 
 
@@ -102,10 +102,10 @@ def calculate_outputs():
     expected = len(DEPTH_SCENARIOS) * len(exposure)
     if len(structural_loss) != expected:
         raise ValueError(
-            f"Expected {expected} Iris structural-loss rows, found {len(structural_loss)}."
+            f"Expected {expected} Elazığ-Sivrice structural-loss rows, found {len(structural_loss)}."
         )
     if (structural_loss["median_pga_g"] <= 0.0).any():
-        raise ValueError("Every Iris PGA value must be positive.")
+        raise ValueError("Every Elazığ-Sivrice PGA value must be positive.")
     if not structural_loss["structural_loss_ratio_mean"].between(
         0.0, 1.0, inclusive="both"
     ).all():
@@ -186,7 +186,7 @@ def plot_pga_vs_depth(results):
     ax.set_xlabel("Source depth used in model (km)")
     ax.set_ylabel("Median PGA at nearest receiver (g)")
     ax.set_title(
-        "Iris event: PGA sensitivity to source depth\n"
+        "2020 Elazığ-Sivrice earthquake: PGA sensitivity to source depth\n"
         "2020-01-24 17:55:13 | Mww 6.7 | fixed receiver, magnitude, rake and Vs30"
     )
     ax.grid(alpha=0.25)
@@ -201,7 +201,7 @@ def plot_pga_vs_depth(results):
     )
 
     fig.tight_layout()
-    fig.savefig(OUTPUT_FOLDER / "iris_event_pga_vs_depth.png", dpi=200)
+    fig.savefig(OUTPUT_FOLDER / "elazig_sivrice_pga_vs_depth.png", dpi=200)
     plt.close(fig)
 
 
@@ -234,17 +234,18 @@ def build_map_data(results):
         how="inner",
         validate="one_to_one",
     )
+    # Presentation convention: analysed (14 km) minus gCMT (12 km).
     merged["pga_difference_g"] = (
-        merged["global_cmt_pga_g"] - merged["analysed_pga_g"]
+        merged["analysed_pga_g"] - merged["global_cmt_pga_g"]
     )
     merged["loss_ratio_difference"] = (
-        merged["global_cmt_loss_ratio"] - merged["analysed_loss_ratio"]
+        merged["analysed_loss_ratio"] - merged["global_cmt_loss_ratio"]
     )
 
-    if (merged["loss_ratio_difference"] < -1e-12).any():
+    if (merged["loss_ratio_difference"] > 1e-12).any():
         raise ValueError(
-            "Unexpected negative gCMT-minus-analysed loss difference for the "
-            "shallower gCMT depth."
+            "Unexpected positive analysed-minus-gCMT loss difference for the "
+            "deeper analysed depth."
         )
     return merged
 
@@ -301,18 +302,18 @@ def plot_loss_map(map_data):
     ax.grid(alpha=0.25)
     ax.legend(loc="upper right")
     ax.set_title(
-        "Iris event: effect of catalogue depth on structural loss\n"
-        "gCMT minus analysed depth, receivers within 150 km\n"
+        "2020 Elazığ-Sivrice earthquake: effect of depth on structural loss\n"
+        "analysed 14 km minus gCMT 12 km, receivers within 150 km\n"
         "2020-01-24 17:55:13 | Mww 6.7 | gCMT 12 km | analysed 14 km"
     )
 
-    strongest = near.sort_values("loss_ratio_difference", ascending=False).iloc[0]
+    strongest = near.sort_values("loss_ratio_difference", ascending=True).iloc[0]
     ax.annotate(
-        "Blue = catalogue predicts\nhigher structural loss",
+        "Red = gCMT predicts\nhigher structural loss",
         xy=(strongest["receiver_longitude"], strongest["receiver_latitude"]),
         xytext=(IRIS_EVENT["longitude"] - 0.9, IRIS_EVENT["latitude"] + 0.9),
         arrowprops={"arrowstyle": "->", "color": "0.15"},
-        color="tab:blue",
+        color="tab:red",
         fontsize=9,
     )
 
@@ -331,7 +332,7 @@ def plot_loss_map(map_data):
     ax.text(
         0.02,
         0.025,
-        "Blue = catalogue higher; red = catalogue lower (none in this event)",
+        "Red = gCMT higher; blue = analysed higher (none in this event)",
         transform=ax.transAxes,
         fontsize=8,
         bbox={"boxstyle": "round,pad=0.25", "fc": "white", "ec": "0.65"},
@@ -339,12 +340,12 @@ def plot_loss_map(map_data):
 
     colourbar = fig.colorbar(points, ax=ax)
     colourbar.set_label(
-        "Mean structural loss-ratio difference (gCMT minus analysed depth)"
+        "Mean structural loss-ratio difference (analysed minus gCMT)"
     )
 
     fig.tight_layout()
     fig.savefig(
-        OUTPUT_FOLDER / "iris_event_gCMT_minus_analysed_loss_difference_map.png",
+        OUTPUT_FOLDER / "elazig_sivrice_analysed_minus_gCMT_loss_difference_map.png",
         dpi=200,
     )
     plt.close(fig)
@@ -422,7 +423,7 @@ def main():
     results.to_csv(OUTPUT_FOLDER / "iris_event_complete_results.csv", index=False)
     summary.to_csv(OUTPUT_FOLDER / "iris_event_depth_summary.csv", index=False)
     map_data.to_csv(
-        OUTPUT_FOLDER / "iris_event_gCMT_minus_analysed_map_data.csv",
+        OUTPUT_FOLDER / "elazig_sivrice_analysed_minus_gCMT_map_data.csv",
         index=False,
     )
 
@@ -430,7 +431,7 @@ def main():
     plot_loss_map(map_data)
     plot_vulnerability_curve(vulnerability)
 
-    print("Iris event analysis complete.")
+    print("2020 Elazığ-Sivrice event analysis complete.")
     print("Event:", IRIS_EVENT["event_id"])
     print("Depth scenarios:", len(DEPTH_SCENARIOS))
     print("Receiver-level loss rows:", len(results))
@@ -447,7 +448,7 @@ def main():
             ]
         ].to_string(index=False)
     )
-    print("\ngCMT minus analysed loss difference range:")
+    print("\nAnalysed minus gCMT loss difference range:")
     print(
         map_data["loss_ratio_difference"].min(),
         "to",

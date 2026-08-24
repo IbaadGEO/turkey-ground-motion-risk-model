@@ -68,7 +68,8 @@ without changing the numerical analysis, run:
 python presentation_figures.py
 ```
 
-To run the separate 24 January 2020 Mww 6.7 Iris-event presentation example,
+To run the separate 24 January 2020 Mww 6.7 Elazığ-Sivrice presentation example,
+case-study earthquake selected by Iris from the waveform dataset,
 including its PGA-depth figure, loss-difference map and exact GEM
 vulnerability curve, run:
 
@@ -144,16 +145,16 @@ as independent earthquake samples. A short explanation of the sampling,
 boxplot settings and axes is in
 [`docs/CATALOGUE_BOXPLOT_WALKTHROUGH.md`](docs/CATALOGUE_BOXPLOT_WALKTHROUGH.md).
 
-Presentation-specific Iris-event outputs are saved in
+Presentation-specific Elazığ-Sivrice event outputs are saved in
 `outputs_gwfm/iris_event_analysis`:
 
 - `iris_event_complete_results.csv`: all 3 depth scenarios across 311 receivers;
 - `iris_event_depth_summary.csv`: compact summary for the 10, 12 and 14 km depths;
-- `iris_event_gCMT_minus_analysed_map_data.csv`: receiver-level values behind the
+- `elazig_sivrice_analysed_minus_gCMT_map_data.csv`: receiver-level values behind the
   loss-difference map;
-- `iris_event_pga_vs_depth.png`: PGA response to the three depth scenarios; and
-- `iris_event_gCMT_minus_analysed_loss_difference_map.png`: gCMT minus analysed
-  structural-loss difference.
+- `elazig_sivrice_pga_vs_depth.png`: PGA response to the three depth scenarios; and
+- `elazig_sivrice_analysed_minus_gCMT_loss_difference_map.png`: analysed 14 km minus
+  gCMT 12 km structural-loss difference.
 
 The exact GEM structural vulnerability curve used by the model is also saved as:
 

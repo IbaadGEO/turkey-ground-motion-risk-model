@@ -128,7 +128,21 @@ Depth-sensitivity results are saved in
   by epicentral-distance bin;
 - `depth_sensitivity_common_event_ids.csv`: the common-event list;
 - `pga_sensitivity_by_distance.png`: PGA sensitivity by distance; and
-- `loss_sensitivity_by_distance.png`: structural-loss sensitivity by distance.
+- `loss_sensitivity_by_distance.png`: structural-loss sensitivity by distance;
+- `catalogue_pga_loss_boxplots.png`: side-by-side event-level PGA and mean
+  structural-loss distributions for the common three-catalogue earthquakes;
+- `catalogue_boxplot_event_maxima.csv`: the balanced event-level values behind
+  the boxplots; and
+- `catalogue_boxplot_summary.csv`: quartiles, maxima and zero-loss event counts
+  for each catalogue.
+
+Run `python catalogue_distribution_plots.py` after the main analysis to
+regenerate the catalogue-comparison figure and its two supporting CSV files.
+Each plotted observation is one earthquake, represented by the maximum across
+the 311 receivers, so the visual comparison does not treat the receiver rows
+as independent earthquake samples. A short explanation of the sampling,
+boxplot settings and axes is in
+[`docs/CATALOGUE_BOXPLOT_WALKTHROUGH.md`](docs/CATALOGUE_BOXPLOT_WALKTHROUGH.md).
 
 Presentation-specific Iris-event outputs are saved in
 `outputs_gwfm/iris_event_analysis`:

@@ -1,6 +1,6 @@
 # Presentation figure updates
 
-This work keeps the validated 117-event production catalogue unchanged and adds a separate Iris-event presentation analysis.
+This work keeps the validated 117-event production catalogue unchanged and adds a separate Elazığ-Sivrice case-study presentation analysis.
 
 ## Updated catalogue-wide figures
 
@@ -16,7 +16,7 @@ Colour meaning is fixed across both figures:
 
 The loss figure uses solid lines for means and dashed lines for 95th percentiles. Both figures show sample sizes by distance bin.
 
-## Iris-event example
+## 2020 Elazığ-Sivrice event example
 
 `iris_event_depth_analysis.py` uses:
 
@@ -31,19 +31,21 @@ The loss figure uses solid lines for means and dashed lines for 95th percentiles
 
 It reuses the same Akkar Rhyp GMPE, 311 receiver locations, local Vs30 values and GEM structural vulnerability function as the main project.
 
+This case-study earthquake was selected by Iris from the waveform dataset used in the project.
+
 Outputs:
 
-- `iris_event_pga_vs_depth.png`
-- `iris_event_gCMT_minus_analysed_loss_difference_map.png`
+- `elazig_sivrice_pga_vs_depth.png`
+- `elazig_sivrice_analysed_minus_gCMT_loss_difference_map.png`
 - `iris_event_complete_results.csv`
 - `iris_event_depth_summary.csv`
-- `iris_event_gCMT_minus_analysed_map_data.csv`
+- `elazig_sivrice_analysed_minus_gCMT_map_data.csv`
 
 The map is calculated as:
 
-`gCMT result - analysed-depth result`
+`analysed-depth result - gCMT result`
 
-Therefore positive/blue means the gCMT depth produces a higher modelled structural loss than the analysed 14 km depth.
+Therefore negative/red means the shallower gCMT depth produces a higher modelled structural loss than the analysed 14 km depth.
 
 ## Exact vulnerability function
 

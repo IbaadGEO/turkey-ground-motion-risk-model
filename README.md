@@ -148,8 +148,8 @@ boxplot settings and axes is in
 Presentation-specific Elazığ-Sivrice event outputs are saved in
 `outputs_gwfm/iris_event_analysis`:
 
-- `iris_event_complete_results.csv`: all 3 depth scenarios across 311 receivers;
-- `iris_event_depth_summary.csv`: compact summary for the 10, 12 and 14 km depths;
+- `elazig_sivrice_complete_results.csv`: all 3 depth scenarios across 311 receivers;
+- `elazig_sivrice_depth_summary.csv`: compact summary for the 10, 12 and 14 km depths;
 - `elazig_sivrice_analysed_minus_gCMT_map_data.csv`: receiver-level values behind the
   loss-difference map;
 - `elazig_sivrice_pga_vs_depth.png`: PGA response to the three depth scenarios; and

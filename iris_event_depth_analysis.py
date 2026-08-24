@@ -420,8 +420,14 @@ def main():
     summary = summarise_by_depth(results)
     map_data = build_map_data(results)
 
-    results.to_csv(OUTPUT_FOLDER / "iris_event_complete_results.csv", index=False)
-    summary.to_csv(OUTPUT_FOLDER / "iris_event_depth_summary.csv", index=False)
+    results.to_csv(
+        OUTPUT_FOLDER / "elazig_sivrice_complete_results.csv",
+        index=False,
+    )
+    summary.to_csv(
+        OUTPUT_FOLDER / "elazig_sivrice_depth_summary.csv",
+        index=False,
+    )
     map_data.to_csv(
         OUTPUT_FOLDER / "elazig_sivrice_analysed_minus_gCMT_map_data.csv",
         index=False,

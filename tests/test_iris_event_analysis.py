@@ -23,10 +23,28 @@ class TestIrisEventPresentationConfig(unittest.TestCase):
         self.assertEqual(REFERENCE_SOURCE, "analysed")
 
     def test_map_difference_is_analysed_minus_global_cmt(self):
-        rows = pd.DataFrame([
-            {"depth_source": "analysed", "location_id": 1, "receiver_latitude": 38.0, "receiver_longitude": 39.0, "repi_km": 20.0, "median_pga_g": 0.20, "structural_loss_ratio_mean": 0.10},
-            {"depth_source": "global_cmt", "location_id": 1, "receiver_latitude": 38.0, "receiver_longitude": 39.0, "repi_km": 20.0, "median_pga_g": 0.30, "structural_loss_ratio_mean": 0.20},
-        ])
+        rows = pd.DataFrame(
+            [
+                {
+                    "depth_source": REFERENCE_SOURCE,
+                    "location_id": 1,
+                    "receiver_latitude": 38.0,
+                    "receiver_longitude": 39.0,
+                    "repi_km": 20.0,
+                    "median_pga_g": 0.20,
+                    "structural_loss_ratio_mean": 0.10,
+                },
+                {
+                    "depth_source": COMPARISON_SOURCE,
+                    "location_id": 1,
+                    "receiver_latitude": 38.0,
+                    "receiver_longitude": 39.0,
+                    "repi_km": 20.0,
+                    "median_pga_g": 0.30,
+                    "structural_loss_ratio_mean": 0.20,
+                },
+            ]
+        )
         result = build_map_data(rows).iloc[0]
         self.assertAlmostEqual(result["pga_difference_g"], -0.10)
         self.assertAlmostEqual(result["loss_ratio_difference"], -0.10)

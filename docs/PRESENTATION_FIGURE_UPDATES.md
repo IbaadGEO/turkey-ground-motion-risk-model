@@ -37,8 +37,8 @@ Outputs:
 
 - `elazig_sivrice_pga_vs_depth.png`
 - `elazig_sivrice_analysed_minus_gCMT_loss_difference_map.png`
-- `iris_event_complete_results.csv`
-- `iris_event_depth_summary.csv`
+- `elazig_sivrice_complete_results.csv`
+- `elazig_sivrice_depth_summary.csv`
 - `elazig_sivrice_analysed_minus_gCMT_map_data.csv`
 
 The map is calculated as:

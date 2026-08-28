@@ -128,8 +128,14 @@ Depth-sensitivity results are saved in
 - `depth_sensitivity_depth_direction_by_distance.csv`: depth direction split
   by epicentral-distance bin;
 - `depth_sensitivity_common_event_ids.csv`: the common-event list;
-- `pga_sensitivity_by_distance.png`: PGA sensitivity by distance; and
-- `loss_sensitivity_by_distance.png`: structural-loss sensitivity by distance;
+- `depth_sensitivity_continuous_summary.csv`: 1 km plotting coordinates for
+  the signed Gaussian-weighted mean and observed pair-to-pair spread;
+- `depth_sensitivity_sign_balance.csv`: negative, unchanged and positive counts
+  for 0-25 km and 0-200 km;
+- `pga_sensitivity_by_distance.png`: signed PGA changes, raw paired values and
+  a continuous distance trend; and
+- `loss_sensitivity_by_distance.png`: signed structural-loss changes, raw
+  paired values and a continuous distance trend;
 - `catalogue_pga_loss_boxplots.png`: side-by-side event-level PGA and mean
   structural-loss distributions for the common three-catalogue earthquakes;
 - `catalogue_boxplot_event_maxima.csv`: the balanced event-level values behind

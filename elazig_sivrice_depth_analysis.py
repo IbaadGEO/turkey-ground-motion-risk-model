@@ -18,7 +18,16 @@ from akkar_turkey_portfolio_gwfm import (
     haversine_distance_km,
     load_inputs,
 )
+from exposure_grid import generate_turkey_land_grid
 from map_plotting import plot_turkey_border
+from prepare_vs30_grid import (
+    INPUT_CRS,
+    MAXIMUM_FALLBACK_DISTANCE_M,
+    MAXIMUM_VS30_M_S,
+    MINIMUM_VS30_M_S,
+    VS30_RASTER_FILE,
+)
+from vs30_sampling import sample_vs30_raster
 
 
 OUTPUT_FOLDER = Path("outputs_gwfm") / "elazig_sivrice_analysis"
@@ -45,6 +54,7 @@ DEPTH_SCENARIOS = [
 REFERENCE_SOURCE = "analysed"
 COMPARISON_SOURCE = "global_cmt"
 MAP_MAX_REPI_KM = 150.0
+FINE_GRID_SPACINGS_KM = (10, 20)
 
 
 def build_scenarios(exposure):
@@ -93,8 +103,14 @@ def build_scenarios(exposure):
     return scenarios
 
 
-def calculate_outputs():
-    _, _, exposure, vulnerability = load_inputs()
+def calculate_outputs(exposure=None, vulnerability=None):
+    if exposure is None or vulnerability is None:
+        _, _, loaded_exposure, loaded_vulnerability = load_inputs()
+        if exposure is None:
+            exposure = loaded_exposure
+        if vulnerability is None:
+            vulnerability = loaded_vulnerability
+
     scenarios = build_scenarios(exposure)
     ground_motion = calculate_ground_motion(scenarios)
     structural_loss = calculate_structural_loss(ground_motion, vulnerability)
@@ -114,6 +130,51 @@ def calculate_outputs():
         )
 
     return structural_loss, vulnerability
+
+
+def prepare_fine_exposure_grid(spacing_km):
+    """Generate a land grid and sample a local Vs30 value at every point."""
+
+    grid = generate_turkey_land_grid(spacing_km)
+    sampled = sample_vs30_raster(
+        grid,
+        VS30_RASTER_FILE,
+        id_column="location_id",
+        longitude_column="longitude",
+        latitude_column="latitude",
+        input_crs=INPUT_CRS,
+        minimum_vs30=MINIMUM_VS30_M_S,
+        maximum_vs30=MAXIMUM_VS30_M_S,
+        maximum_fallback_distance_m=MAXIMUM_FALLBACK_DISTANCE_M,
+    )
+
+    unresolved = ~sampled["vs30_status"].isin(["direct", "nearest_valid"])
+    excluded_count = int(unresolved.sum())
+    sampled = sampled.loc[~unresolved].copy()
+    grid = grid[grid["location_id"].isin(sampled["location_id"])].copy()
+
+    grid_file = Path("data") / f"turkey_{spacing_km}km_land_grid.csv"
+    vs30_file = (
+        Path("data") / f"turkey_{spacing_km}km_land_grid_vs30.csv"
+    )
+    grid.to_csv(grid_file, index=False)
+    sampled.to_csv(vs30_file, index=False)
+
+    exposure = sampled[
+        ["location_id", "latitude", "longitude", "vs30_m_s", "vs30_status"]
+    ].rename(columns={"vs30_m_s": "vs30"})
+    summary = {
+        "grid_spacing_km": spacing_km,
+        "candidate_boundary_points": len(sampled) + excluded_count,
+        "usable_exposure_points": len(sampled),
+        "direct_vs30_points": int((sampled["vs30_status"] == "direct").sum()),
+        "nearest_valid_vs30_points": int(
+            (sampled["vs30_status"] == "nearest_valid").sum()
+        ),
+        "excluded_no_vs30_points": excluded_count,
+        "maximum_fallback_distance_m": MAXIMUM_FALLBACK_DISTANCE_M,
+    }
+    return exposure, summary
 
 
 def summarise_by_depth(results):
@@ -252,13 +313,22 @@ def build_map_data(results):
     return merged
 
 
-def plot_loss_map(map_data):
+def plot_loss_map(
+    map_data,
+    grid_spacing_km=50,
+    output_file=None,
+    colour_limit=None,
+):
     near = map_data[map_data["repi_km"] <= MAP_MAX_REPI_KM].copy()
     if near.empty:
         raise ValueError("No Elazığ-Sivrice receivers lie within 150 km.")
 
     values = near["loss_ratio_difference"].to_numpy(float)
-    maximum = float(np.abs(values).max())
+    maximum = (
+        float(np.abs(values).max())
+        if colour_limit is None
+        else float(colour_limit)
+    )
     if maximum == 0.0:
         norm = mcolors.Normalize(vmin=-1.0, vmax=1.0)
     else:
@@ -267,13 +337,14 @@ def plot_loss_map(map_data):
     fig, ax = plt.subplots(figsize=(11, 6))
     plot_turkey_border(ax)
 
+    point_sizes = {10: 18, 20: 32, 50: 58}
     points = ax.scatter(
         near["receiver_longitude"],
         near["receiver_latitude"],
         c=values,
         cmap="RdBu",
         norm=norm,
-        s=58,
+        s=point_sizes.get(grid_spacing_km, 30),
         edgecolor="black",
         linewidth=0.3,
         zorder=3,
@@ -290,12 +361,12 @@ def plot_loss_map(map_data):
     )
 
     ax.set_xlim(
-        near["receiver_longitude"].min() - 0.55,
-        near["receiver_longitude"].max() + 0.55,
+        ELAZIG_SIVRICE_EVENT["longitude"] - 2.0,
+        ELAZIG_SIVRICE_EVENT["longitude"] + 2.0,
     )
     ax.set_ylim(
-        near["receiver_latitude"].min() - 0.45,
-        near["receiver_latitude"].max() + 0.45,
+        ELAZIG_SIVRICE_EVENT["latitude"] - 1.55,
+        ELAZIG_SIVRICE_EVENT["latitude"] + 1.55,
     )
     mean_lat = float(near["receiver_latitude"].mean())
     ax.set_aspect(1.0 / np.cos(np.radians(mean_lat)))
@@ -306,7 +377,8 @@ def plot_loss_map(map_data):
     ax.set_title(
         "2020 Elazığ-Sivrice earthquake: effect of depth on structural loss\n"
         "analysed 14 km minus gCMT 12 km, receivers within 150 km\n"
-        "2020-01-24 17:55:13 | Mww 6.7 | gCMT 12 km | analysed 14 km"
+        f"{grid_spacing_km} km exposure grid | {len(near):,} receivers | "
+        "2020-01-24 17:55:13 | Mww 6.7"
     )
 
     strongest = near.sort_values("loss_ratio_difference", ascending=True).iloc[0]
@@ -322,19 +394,19 @@ def plot_loss_map(map_data):
         fontsize=9,
     )
 
-    zero_count = int(
-        (near["loss_ratio_difference"].abs() <= 1e-12).sum()
-    )
-    zero_row = near.loc[near["loss_ratio_difference"].abs().idxmin()]
-    ax.annotate(
-        f"{zero_count}/{len(near)} receivers:\nzero structural-loss difference",
-        xy=(zero_row["receiver_longitude"], zero_row["receiver_latitude"]),
-        xytext=(
-            ELAZIG_SIVRICE_EVENT["longitude"] + 0.65,
-            ELAZIG_SIVRICE_EVENT["latitude"] + 0.45,
-        ),
-        arrowprops={"arrowstyle": "->", "color": "0.15"},
-        fontsize=9,
+    zero_count = int((near["loss_ratio_difference"].abs() <= 1e-12).sum())
+    changed_count = len(near) - zero_count
+    ax.text(
+        0.975,
+        0.76,
+        f"Changed: {changed_count}/{len(near)} "
+        f"({100.0 * changed_count / len(near):.1f}%)\n"
+        f"Unchanged: {zero_count}/{len(near)}",
+        transform=ax.transAxes,
+        ha="right",
+        va="top",
+        fontsize=8.5,
+        bbox={"boxstyle": "round,pad=0.3", "fc": "white", "ec": "0.65"},
     )
 
     ax.text(
@@ -352,10 +424,12 @@ def plot_loss_map(map_data):
     )
 
     fig.tight_layout()
-    fig.savefig(
-        OUTPUT_FOLDER / "elazig_sivrice_analysed_minus_gCMT_loss_difference_map.png",
-        dpi=200,
-    )
+    if output_file is None:
+        output_file = (
+            OUTPUT_FOLDER
+            / "elazig_sivrice_analysed_minus_gCMT_loss_difference_map.png"
+        )
+    fig.savefig(output_file, dpi=200)
     plt.close(fig)
 
 
@@ -443,6 +517,55 @@ def main():
 
     plot_pga_vs_depth(results)
     plot_loss_map(map_data)
+
+    fine_grid_summaries = []
+    fine_map_outputs = []
+    for spacing_km in FINE_GRID_SPACINGS_KM:
+        fine_exposure, grid_summary = prepare_fine_exposure_grid(spacing_km)
+        fine_grid_summaries.append(grid_summary)
+        fine_results, _ = calculate_outputs(fine_exposure, vulnerability)
+        fine_map_data = build_map_data(fine_results)
+        fine_map_data.to_csv(
+            OUTPUT_FOLDER
+            / (
+                "elazig_sivrice_analysed_minus_gCMT_map_data_"
+                f"{spacing_km}km_grid.csv"
+            ),
+            index=False,
+        )
+        fine_map_outputs.append(
+            {
+                "spacing_km": spacing_km,
+                "map_data": fine_map_data,
+                "output_file": (
+                    OUTPUT_FOLDER
+                    / (
+                        "elazig_sivrice_analysed_minus_gCMT_"
+                        f"loss_difference_map_{spacing_km}km_grid.png"
+                    )
+                ),
+            }
+        )
+
+    shared_colour_limit = max(
+        float(
+            np.abs(output["map_data"]["loss_ratio_difference"]).max()
+        )
+        for output in fine_map_outputs
+    )
+    for output in fine_map_outputs:
+        plot_loss_map(
+            output["map_data"],
+            grid_spacing_km=output["spacing_km"],
+            output_file=output["output_file"],
+            colour_limit=shared_colour_limit,
+        )
+
+    pd.DataFrame(fine_grid_summaries).to_csv(
+        OUTPUT_FOLDER / "fine_exposure_grid_summary.csv",
+        index=False,
+    )
+
     plot_vulnerability_curve(vulnerability)
 
     print("2020 Elazig-Sivrice event analysis complete.")

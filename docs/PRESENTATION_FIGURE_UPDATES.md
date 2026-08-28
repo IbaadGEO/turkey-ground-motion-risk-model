@@ -84,3 +84,26 @@ Outputs:
 - `outputs_gwfm/structural_vulnerability_curve_points.csv`
 
 The CSV is written directly from the XML-loaded intensity-measure levels and mean loss ratios.
+
+## Vs30 full-raster comparison
+
+`vs30_raster_comparison.py` adds a separate validation of the model's Vs30
+sampling. The production workflow still uses the existing 311 receiver values
+sampled from the 9-arcsecond TRVs30GeoM product.
+
+The comparison uses the higher-resolution `TRVs30GeoM_3Arcsec.tif` raster as a
+spatial reference and samples that raster at the same 311 receiver locations.
+The full 1.2 GB raster stays local in `data/external` and is ignored by Git.
+
+Outputs:
+
+- `outputs_gwfm/vs30_raster_comparison/vs30_full_raster_vs_sampled_receivers.png`
+- `outputs_gwfm/vs30_raster_comparison/vs30_3arcsec_minus_model_receivers.png`
+- `outputs_gwfm/vs30_raster_comparison/vs30_3arcsec_receiver_comparison.csv`
+- `outputs_gwfm/vs30_raster_comparison/vs30_raster_comparison_summary.csv`
+
+The checked receiver-level comparison has a median signed difference of
+0.0 m/s, median absolute difference of 0.52 m/s, mean absolute difference of
+5.02 m/s, Pearson correlation of 0.9883 and Spearman correlation of 0.9946.
+The largest differences are concentrated at some of the seven nearest-valid
+fallback receivers rather than forming a broad national-scale bias.

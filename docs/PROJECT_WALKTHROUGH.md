@@ -107,6 +107,36 @@ Turkey outline derived
 from Natural Earth's public-domain `ne_50m_admin_0_countries` dataset,
 version 5.1.2.
 
+## Vs30 full-raster validation
+
+The production model uses 311 receiver Vs30 values sampled from the
+9-arcsecond TRVs30GeoM product. A separate validation script,
+`vs30_raster_comparison.py`, compares those values with the higher-resolution
+3-arcsecond TRVs30GeoM raster while leaving the production model unchanged.
+
+The 3-arcsecond source raster is read directly from
+`data/external/TRVs30GeoM_3Arcsec.tif`. Native raster cells are sampled at all
+311 receiver locations. The raster is downsampled only for plotting so that
+the 1.2 GB source does not need to be loaded into a presentation figure at
+native display resolution.
+
+The checked comparison contains 311 receivers. Both products give 304 direct
+samples and 7 nearest-valid samples. Across all receivers, the median signed
+3-arcsecond minus model difference is 0.0 m/s, the median absolute difference
+is 0.52 m/s, the mean absolute difference is 5.02 m/s and the 95th percentile
+absolute difference is 20.85 m/s. Pearson and Spearman correlations are 0.9883
+and 0.9946 respectively.
+
+For the 304 direct-to-direct comparisons, the mean absolute difference is
+3.24 m/s and Pearson correlation is 0.9956. The largest differences are
+concentrated at some of the seven fallback locations. The comparison therefore
+supports the conclusion that the 311-point model grid preserves the broad
+spatial Vs30 pattern, while also identifying the fallback locations as the
+main source of resolution-dependent differences.
+
+Generated outputs are stored in
+`outputs_gwfm/vs30_raster_comparison`.
+
 ## How to demonstrate it
 
 Install the requirements and run:
@@ -128,7 +158,6 @@ Then show:
 
 ## Work still outstanding
 
-- Add a full-raster TRVs30GeoM-versus-311-sampled-receiver comparison figure.
 - Add a location-specific building inventory or taxonomy mixture if the model
   is extended beyond the current representative structural scenario.
 - Confirm whether the seven nearest-cell Vs30 replacements are acceptable.

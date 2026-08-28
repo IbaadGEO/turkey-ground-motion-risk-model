@@ -94,6 +94,43 @@ and run:
 python prepare_vs30_grid.py
 ```
 
+### Full-raster Vs30 comparison
+
+The production model continues to use the validated 311 receiver values sampled
+from `TRVs30GeoM_9Arcsec.tif`. A separate validation workflow compares those
+values with the higher-resolution `TRVs30GeoM_3Arcsec.tif` raster without
+changing the production inputs.
+
+Place `TRVs30GeoM_3Arcsec.tif` in `data/external` and run:
+
+```powershell
+python vs30_raster_comparison.py
+```
+
+The 1.2 GB source raster remains local and is ignored by Git. The comparison
+uses the native 3-arcsecond raster to sample all 311 receiver locations and
+only downsamples the raster for display.
+
+Checked results:
+
+- 311 receivers compared;
+- current 9-arcsecond model values: 304 direct and 7 nearest-valid;
+- 3-arcsecond samples: 304 direct and 7 nearest-valid;
+- median signed difference: 0.0 m/s;
+- median absolute difference: 0.52 m/s;
+- mean absolute difference: 5.02 m/s;
+- 95th percentile absolute difference: 20.85 m/s;
+- Pearson correlation: 0.9883; and
+- Spearman correlation: 0.9946.
+
+For the 304 direct-to-direct receiver comparisons, the mean absolute
+difference is 3.24 m/s and the Pearson correlation is 0.9956. The largest
+differences are concentrated at some of the seven nearest-valid fallback
+locations.
+
+This comparison is a resolution and sampling check. It does not replace the
+current 9-arcsecond Vs30 values used by the production model.
+
 The tested main run produces:
 
 - 321 valid earthquake-depth combinations;
@@ -167,6 +204,17 @@ The exact GEM structural vulnerability curve used by the model is also saved as:
 - `outputs_gwfm/structural_vulnerability_curve.png`; and
 - `outputs_gwfm/structural_vulnerability_curve_points.csv`.
 
+Full-raster Vs30 comparison outputs are saved in
+`outputs_gwfm/vs30_raster_comparison`:
+
+- `vs30_full_raster_vs_sampled_receivers.png`: full 3-arcsecond raster pattern
+  compared with the 311 model receiver values using a common colour scale;
+- `vs30_3arcsec_minus_model_receivers.png`: receiver-level 3-arcsecond minus
+  current model Vs30 differences;
+- `vs30_3arcsec_receiver_comparison.csv`: auditable receiver-level values and
+  differences; and
+- `vs30_raster_comparison_summary.csv`: compact comparison statistics.
+
 ## Complete PGA and structural-loss output
 
 `complete_pga_structural_loss_table.csv` is the main combined output requested
@@ -197,5 +245,6 @@ The 99,831-row complete CSV is a generated output and is ignored by Git. The
 - Structural loss ratios are not insured or monetary loss estimates.
 - The GEM vulnerability data are for non-commercial use under the included
   licence.
-- `vs30_map.png` shows the 311 sampled receiver values. A full-raster
-  TRVs30GeoM-versus-sampled-grid comparison figure is still outstanding.
+- `vs30_map.png` shows the 311 production receiver values. The separate
+  full-raster validation compares them with the 3-arcsecond product but
+  does not replace the production 9-arcsecond inputs.

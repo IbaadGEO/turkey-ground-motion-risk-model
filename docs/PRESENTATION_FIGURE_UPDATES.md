@@ -4,7 +4,9 @@ This work keeps the validated 117-event production catalogue unchanged and adds 
 
 ## Updated catalogue-wide figures
 
-`presentation_figures.py` reads the existing numerical depth-sensitivity summary and regenerates:
+`presentation_figures.py` reads the complete PGA/structural-loss table, pairs
+the same earthquake and receiver across depth catalogues, keeps the 90 events
+available in all three catalogues, and regenerates:
 
 - `pga_sensitivity_by_distance.png`
 - `loss_sensitivity_by_distance.png`
@@ -14,7 +16,28 @@ Colour meaning is fixed across both figures:
 - gCMT = blue
 - ISC-EHB = orange
 
-The loss figure uses solid lines for means and dashed lines for 95th percentiles. Both figures show sample sizes by distance bin.
+Both figures now use signed `comparison catalogue - gWFM` changes. Values above
+zero mean that the comparison catalogue produces higher PGA or loss; values
+below zero mean that it produces lower PGA or loss.
+
+The coarse five-bin lines have been replaced by:
+
+- every event-receiver pair within the model's 200 km range, shown as a light
+  point;
+- a continuous 15 km Gaussian-weighted mean, labelled as the systematic signed
+  tendency; and
+- a shaded weighted standard deviation, labelled as observed pair-to-pair
+  variability.
+
+The shading is descriptive variability across the existing results. It is not
+a confidence interval and does not introduce a random ground-motion sample.
+The current structural-loss workflow remains conditional on median PGA and
+does not integrate over ground-motion uncertainty.
+
+Each figure reports the negative, unchanged and positive proportions within
+0-25 km, where the depth response is strongest. Full 0-25 km and 0-200 km
+counts are saved in `depth_sensitivity_sign_balance.csv`; the line and shading
+coordinates are saved in `depth_sensitivity_continuous_summary.csv`.
 
 ## 2020 Elazığ-Sivrice event example
 

@@ -12,6 +12,8 @@ Test how changing the catalogue depth for the same earthquake changes hypocentra
 - Keep magnitude, rake, source location, receiver location and Vs30 unchanged.
 - Calculate depth difference, hypocentral-distance difference, signed and absolute PGA change, and signed and absolute structural loss-ratio difference.
 - Group results into 0-25, 25-50, 50-100, 100-200 and >200 km epicentral-distance bins.
+- For the two presentation figures, retain every signed pair within 200 km and
+  calculate a continuous 15 km Gaussian-weighted trend at 1 km intervals.
 
 ## Fair catalogue comparison
 
@@ -47,10 +49,17 @@ The common-event results are also grouped into deeper, shallower and same-depth 
   - Overall deeper/shallower/same-depth comparison.
 - `depth_sensitivity_depth_direction_by_distance.csv`
   - Deeper/shallower/same-depth results split by epicentral-distance bin.
+- `depth_sensitivity_continuous_summary.csv`
+  - Continuous systematic signed tendency, observed standard deviation and
+    weighted sign proportions used by the figures.
+- `depth_sensitivity_sign_balance.csv`
+  - Exact lower, unchanged and higher counts for 0-25 km and 0-200 km.
 - `pga_sensitivity_by_distance.png`
-  - Median absolute PGA change for the common-event set.
+  - Raw signed PGA changes, continuous signed mean and observed spread for the
+    common-event set.
 - `loss_sensitivity_by_distance.png`
-  - Mean and 95th percentile absolute loss-ratio difference for the common-event set.
+  - Raw signed loss-ratio changes, continuous signed mean and observed spread
+    for the common-event set.
 
 The event-specific presentation example is now handled separately by
 `elazig_sivrice_depth_analysis.py`. It uses the 24 January 2020 Mww 6.7
@@ -61,10 +70,24 @@ Elazığ-Sivrice earthquake, selected by Iris, and does not alter the validated
 
 The catalogue depths are observed/compiled input data, but PGA and structural loss ratios are modelled outputs. The loss result is conditional on the current GEM structural vulnerability function used by the project.
 
-The >200 km bin is retained to show the trend, but the project already flags source-receiver pairs beyond 200 km. Earthquake depths greater than 30 km are also retained and flagged by the main workflow.
+The continuous line is a systematic signed tendency: a line below zero means
+the comparison catalogue generally lowers the modelled response relative to
+gWFM. The shaded weighted standard deviation describes variation between the
+event-receiver pairs. It must not be described as sampled random uncertainty;
+the current workflow does not integrate the GMPE ground-motion uncertainty
+into structural loss.
+
+The binned CSV summary retains the >200 km category, but the continuous
+presentation figures stop at the model's stated 200 km range. Earthquake
+depths greater than 30 km are also retained and flagged by the main workflow.
 
 ## Checked result
 
 The checked run used 90 earthquakes with all three valid depth sources, giving 55,980 common-event paired rows.
 
-The strongest sensitivity is within 0-25 km. In that bin, the median absolute PGA change is 26.3% for Global CMT versus waveform and 14.4% for ISC-EHB versus waveform. Practical structural-loss changes occur in 25.0% and 21.4% of those near-field pairs respectively, and become negligible with increasing distance.
+The strongest sensitivity is within 0-25 km. For gCMT, 85.7% of the signed PGA
+changes are lower, 0.0% unchanged and 14.3% higher than gWFM. For ISC-EHB, the
+corresponding proportions are 64.3%, 10.7% and 25.0%. For structural loss, both
+catalogue comparisons contain 21.4% lower, 71.4% unchanged and 7.1% higher
+near-field responses. The systematic signed tendency approaches zero with
+increasing distance.

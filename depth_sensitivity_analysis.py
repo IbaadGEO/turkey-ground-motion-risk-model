@@ -22,6 +22,16 @@ BASELINE_SOURCE = "waveform"
 COMPARISON_SOURCES = ("isc_ehb", "global_cmt")
 ALL_REQUIRED_SOURCES = {BASELINE_SOURCE, *COMPARISON_SOURCES}
 
+PLOT_SOURCE_ORDER = ("global_cmt", "isc_ehb")
+SOURCE_LABELS = {
+    "global_cmt": "gCMT",
+    "isc_ehb": "ISC-EHB",
+}
+SOURCE_COLOURS = {
+    "global_cmt": "tab:blue",
+    "isc_ehb": "tab:orange",
+}
+
 MAP_EVENT_ID = "1421"
 MAP_COMPARISON_SOURCE = "global_cmt"
 MAP_MAX_REPI_KM = 150.0
@@ -31,6 +41,11 @@ DISTANCE_LABELS = ["0-25", "25-50", "50-100", "100-200", ">200"]
 
 LOSS_CHANGE_TOLERANCE = 1e-12
 PRACTICAL_LOSS_CHANGE_THRESHOLD = 1e-6
+
+PRESENTATION_MAX_DISTANCE_KM = 200.0
+CONTINUOUS_DISTANCE_STEP_KM = 1.0
+KERNEL_BANDWIDTH_KM = 15.0
+PGA_CHANGE_TOLERANCE_PERCENT = 1e-9
 
 
 def load_results():
@@ -364,79 +379,325 @@ def summarise_depth_direction_by_distance(comparisons):
         ),
     ).reset_index()
 
-def plot_pga_sensitivity(common_summary):
-    fig, ax = plt.subplots(figsize=(10, 6))
 
-    for comparison_source in COMPARISON_SOURCES:
-        source_summary = common_summary[
-            common_summary["comparison_source"] == comparison_source
+def _weighted_mean_and_standard_deviation(values, weights):
+    """Return a kernel-weighted mean and empirical standard deviation."""
+
+    weight_sum = float(weights.sum())
+    if weight_sum <= 0.0:
+        return np.nan, np.nan
+
+    mean = float(np.average(values, weights=weights))
+    variance = float(np.average((values - mean) ** 2, weights=weights))
+    return mean, np.sqrt(variance)
+
+
+def build_continuous_sensitivity_summary(common_comparisons):
+    """Smooth raw signed pairs without reducing them to distance bins.
+
+    A Gaussian kernel gives nearby pairs more influence at each plotted
+    distance. The weighted mean is the systematic signed tendency. The
+    weighted standard deviation is descriptive pair-to-pair variability; it
+    is not a confidence interval or a simulated ground-motion uncertainty.
+    """
+
+    distance_grid = np.arange(
+        0.0,
+        PRESENTATION_MAX_DISTANCE_KM + CONTINUOUS_DISTANCE_STEP_KM,
+        CONTINUOUS_DISTANCE_STEP_KM,
+    )
+    metric_settings = (
+        ("pga_percent_change", "pga_percent", PGA_CHANGE_TOLERANCE_PERCENT),
+        ("loss_ratio_difference", "loss_ratio", LOSS_CHANGE_TOLERANCE),
+    )
+    rows = []
+
+    for source in PLOT_SOURCE_ORDER:
+        source_rows = common_comparisons[
+            (common_comparisons["comparison_source"] == source)
+            & (
+                common_comparisons["repi_km"]
+                <= PRESENTATION_MAX_DISTANCE_KM
+            )
         ]
-        if source_summary.empty:
+        if source_rows.empty:
             continue
 
-        ax.plot(
-            source_summary["distance_bin_km"].astype(str),
-            source_summary["median_absolute_pga_change_percent"],
-            marker="o",
-            label=f"{comparison_source} vs waveform",
+        distances = source_rows["repi_km"].to_numpy(float)
+
+        for value_column, metric, tolerance in metric_settings:
+            values = source_rows[value_column].to_numpy(float)
+
+            for distance in distance_grid:
+                offsets = (distances - distance) / KERNEL_BANDWIDTH_KM
+                weights = np.exp(-0.5 * offsets ** 2)
+                mean, standard_deviation = (
+                    _weighted_mean_and_standard_deviation(values, weights)
+                )
+                effective_pair_count = float(
+                    weights.sum() ** 2 / np.square(weights).sum()
+                )
+                weight_sum = float(weights.sum())
+
+                rows.append(
+                    {
+                        "comparison_source": source,
+                        "metric": metric,
+                        "epicentral_distance_km": distance,
+                        "kernel_bandwidth_km": KERNEL_BANDWIDTH_KM,
+                        "pairs_within_200_km": len(source_rows),
+                        "effective_pair_count": effective_pair_count,
+                        "systematic_mean_signed_change": mean,
+                        "empirical_standard_deviation": standard_deviation,
+                        "weighted_negative_percent": (
+                            100.0
+                            * weights[values < -tolerance].sum()
+                            / weight_sum
+                        ),
+                        "weighted_unchanged_percent": (
+                            100.0
+                            * weights[np.abs(values) <= tolerance].sum()
+                            / weight_sum
+                        ),
+                        "weighted_positive_percent": (
+                            100.0
+                            * weights[values > tolerance].sum()
+                            / weight_sum
+                        ),
+                    }
+                )
+
+    if not rows:
+        raise ValueError("No common-event pairs were available within 200 km.")
+
+    return pd.DataFrame(rows)
+
+
+def summarise_sign_balance(common_comparisons):
+    """Count lower, unchanged and higher responses in key distance ranges."""
+
+    metric_settings = (
+        ("pga_percent_change", "pga_percent", PGA_CHANGE_TOLERANCE_PERCENT),
+        ("loss_ratio_difference", "loss_ratio", LOSS_CHANGE_TOLERANCE),
+    )
+    rows = []
+
+    ranges = (
+        ("0-25", 25.0),
+        ("0-200", PRESENTATION_MAX_DISTANCE_KM),
+    )
+
+    for distance_range, maximum_distance in ranges:
+        within_range = common_comparisons[
+            common_comparisons["repi_km"] <= maximum_distance
+        ]
+
+        for source in PLOT_SOURCE_ORDER:
+            source_rows = within_range[
+                within_range["comparison_source"] == source
+            ]
+            for value_column, metric, tolerance in metric_settings:
+                values = source_rows[value_column].to_numpy(float)
+                negative_count = int((values < -tolerance).sum())
+                unchanged_count = int((np.abs(values) <= tolerance).sum())
+                positive_count = int((values > tolerance).sum())
+                pair_count = len(values)
+                if pair_count == 0:
+                    continue
+
+                rows.append(
+                    {
+                        "distance_range_km": distance_range,
+                        "comparison_source": source,
+                        "metric": metric,
+                        "pair_count": pair_count,
+                        "negative_count": negative_count,
+                        "negative_percent": (
+                            100.0 * negative_count / pair_count
+                        ),
+                        "unchanged_count": unchanged_count,
+                        "unchanged_percent": (
+                            100.0 * unchanged_count / pair_count
+                        ),
+                        "positive_count": positive_count,
+                        "positive_percent": (
+                            100.0 * positive_count / pair_count
+                        ),
+                    }
+                )
+
+    return pd.DataFrame(rows)
+
+
+def _add_sign_balance_text(fig, sign_balance, metric):
+    metric_rows = sign_balance[
+        (sign_balance["metric"] == metric)
+        & (sign_balance["distance_range_km"] == "0-25")
+    ]
+    text_parts = []
+
+    for source in PLOT_SOURCE_ORDER:
+        row = metric_rows[
+            metric_rows["comparison_source"] == source
+        ].iloc[0]
+        text_parts.append(
+            f"{SOURCE_LABELS[source]} (n={int(row['pair_count']):,}): "
+            f"{row['negative_percent']:.1f}% lower  |  "
+            f"{row['unchanged_percent']:.1f}% unchanged  |  "
+            f"{row['positive_percent']:.1f}% higher"
         )
 
+    fig.text(
+        0.5,
+        0.095,
+        "Near-field sign balance (0-25 km)\n" + "\n".join(text_parts),
+        ha="center",
+        va="center",
+        fontsize=9,
+        bbox={"boxstyle": "round,pad=0.45", "fc": "white", "ec": "0.7"},
+    )
+
+
+def _plot_signed_sensitivity(
+    common_comparisons,
+    continuous_summary,
+    sign_balance,
+    *,
+    value_column,
+    metric,
+    scale,
+    filename,
+    title,
+    direction_text,
+    ylabel,
+):
+    fig, ax = plt.subplots(figsize=(11, 7))
+    in_range = common_comparisons[
+        common_comparisons["repi_km"] <= PRESENTATION_MAX_DISTANCE_KM
+    ]
+
+    for source in PLOT_SOURCE_ORDER:
+        colour = SOURCE_COLOURS[source]
+        raw = in_range[in_range["comparison_source"] == source]
+        smooth = continuous_summary[
+            (continuous_summary["comparison_source"] == source)
+            & (continuous_summary["metric"] == metric)
+        ]
+
+        x = smooth["epicentral_distance_km"].to_numpy(float)
+        mean = (
+            smooth["systematic_mean_signed_change"].to_numpy(float) * scale
+        )
+        spread = (
+            smooth["empirical_standard_deviation"].to_numpy(float) * scale
+        )
+
+        ax.scatter(
+            raw["repi_km"],
+            raw[value_column] * scale,
+            s=12,
+            alpha=0.16,
+            color=colour,
+            edgecolors="none",
+        )
+        ax.fill_between(
+            x,
+            mean - spread,
+            mean + spread,
+            color=colour,
+            alpha=0.14,
+            linewidth=0.0,
+        )
+        ax.plot(
+            x,
+            mean,
+            color=colour,
+            linewidth=2.5,
+            label=f"{SOURCE_LABELS[source]} systematic tendency",
+        )
+
+    ax.axhline(0.0, color="0.15", linewidth=1.1, zorder=1)
+    ax.set_xlim(0.0, PRESENTATION_MAX_DISTANCE_KM)
     ax.set_xlabel("Epicentral distance (km)")
-    ax.set_ylabel("Median absolute PGA change (%)")
-    ax.set_title(
-        "PGA sensitivity to catalogue depth\n"
-        "Same earthquakes available in all three catalogues"
+    ax.set_ylabel(ylabel)
+    ax.set_title(f"{title}\n{direction_text}")
+    ax.grid(alpha=0.22)
+    ax.legend(loc="best")
+
+    _add_sign_balance_text(fig, sign_balance, metric)
+    fig.text(
+        0.5,
+        0.018,
+        "Dots: event-receiver pairs. Line: 15 km Gaussian-weighted mean "
+        "(systematic signed tendency). Shading: ±1 weighted SD.\n"
+        "The shading is observed pair-to-pair variability; no random "
+        "ground-motion uncertainty was sampled.",
+        ha="center",
+        va="bottom",
+        fontsize=8.0,
+        color="0.3",
     )
-    ax.grid(alpha=0.25)
-    ax.legend()
-    fig.tight_layout()
-    fig.savefig(
-        OUTPUT_FOLDER / "pga_sensitivity_by_distance.png",
-        dpi=150,
-    )
+    fig.tight_layout(rect=(0.0, 0.18, 1.0, 1.0))
+    fig.savefig(OUTPUT_FOLDER / filename, dpi=200)
     plt.close(fig)
 
 
-def plot_loss_sensitivity(common_summary):
-    fig, ax = plt.subplots(figsize=(10, 6))
-
-    for comparison_source in COMPARISON_SOURCES:
-        source_summary = common_summary[
-            common_summary["comparison_source"] == comparison_source
-        ]
-        if source_summary.empty:
-            continue
-
-        distance_labels = source_summary["distance_bin_km"].astype(str)
-
-        ax.plot(
-            distance_labels,
-            source_summary["mean_absolute_loss_ratio_difference"],
-            marker="o",
-            label=f"{comparison_source} mean",
+def plot_pga_sensitivity(
+    common_comparisons,
+    continuous_summary=None,
+    sign_balance=None,
+):
+    if continuous_summary is None:
+        continuous_summary = build_continuous_sensitivity_summary(
+            common_comparisons
         )
-        ax.plot(
-            distance_labels,
-            source_summary["p95_absolute_loss_ratio_difference"],
-            marker="s",
-            linestyle="--",
-            label=f"{comparison_source} 95th percentile",
-        )
+    if sign_balance is None:
+        sign_balance = summarise_sign_balance(common_comparisons)
 
-    ax.set_xlabel("Epicentral distance (km)")
-    ax.set_ylabel("Absolute change in mean structural loss ratio")
-    ax.set_title(
-        "Structural-loss sensitivity to catalogue depth\n"
-        "Same earthquakes available in all three catalogues"
+    _plot_signed_sensitivity(
+        common_comparisons,
+        continuous_summary,
+        sign_balance,
+        value_column="pga_percent_change",
+        metric="pga_percent",
+        scale=1.0,
+        filename="pga_sensitivity_by_distance.png",
+        title="Signed PGA sensitivity to catalogue depth",
+        direction_text=(
+            "Comparison catalogue minus gWFM: positive = higher PGA; "
+            "negative = lower PGA"
+        ),
+        ylabel="Signed PGA change relative to gWFM (%)",
     )
-    ax.grid(alpha=0.25)
-    ax.legend()
-    fig.tight_layout()
-    fig.savefig(
-        OUTPUT_FOLDER / "loss_sensitivity_by_distance.png",
-        dpi=150,
+
+
+def plot_loss_sensitivity(
+    common_comparisons,
+    continuous_summary=None,
+    sign_balance=None,
+):
+    if continuous_summary is None:
+        continuous_summary = build_continuous_sensitivity_summary(
+            common_comparisons
+        )
+    if sign_balance is None:
+        sign_balance = summarise_sign_balance(common_comparisons)
+
+    _plot_signed_sensitivity(
+        common_comparisons,
+        continuous_summary,
+        sign_balance,
+        value_column="loss_ratio_difference",
+        metric="loss_ratio",
+        scale=100.0,
+        filename="loss_sensitivity_by_distance.png",
+        title="Signed structural-loss sensitivity to catalogue depth",
+        direction_text=(
+            "Comparison catalogue minus gWFM: positive = higher loss; "
+            "negative = lower loss"
+        ),
+        ylabel="Signed structural loss-ratio change (percentage points)",
     )
-    plt.close(fig)
 
 
 def set_map_shape(ax, latitudes):
@@ -566,6 +827,10 @@ def main():
     depth_direction_distance_summary = summarise_depth_direction_by_distance(
         common_comparisons
     )
+    continuous_summary = build_continuous_sensitivity_summary(
+        common_comparisons
+    )
+    sign_balance = summarise_sign_balance(common_comparisons)
 
     all_available_summary.to_csv(
         OUTPUT_FOLDER / "depth_sensitivity_all_available_summary.csv",
@@ -588,13 +853,29 @@ def main():
         OUTPUT_FOLDER / "depth_sensitivity_common_event_ids.csv",
         index=False,
     )
+    continuous_summary.to_csv(
+        OUTPUT_FOLDER / "depth_sensitivity_continuous_summary.csv",
+        index=False,
+    )
+    sign_balance.to_csv(
+        OUTPUT_FOLDER / "depth_sensitivity_sign_balance.csv",
+        index=False,
+    )
 
     legacy_summary = OUTPUT_FOLDER / "depth_sensitivity_summary.csv"
     if legacy_summary.exists():
         legacy_summary.unlink()
 
-    plot_pga_sensitivity(common_event_summary)
-    plot_loss_sensitivity(common_event_summary)
+    plot_pga_sensitivity(
+        common_comparisons,
+        continuous_summary,
+        sign_balance,
+    )
+    plot_loss_sensitivity(
+        common_comparisons,
+        continuous_summary,
+        sign_balance,
+    )
     plot_event_loss_difference_map(common_comparisons)
 
     print("Depth-sensitivity analysis complete.")

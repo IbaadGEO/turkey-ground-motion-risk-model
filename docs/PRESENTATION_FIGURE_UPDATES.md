@@ -18,7 +18,7 @@ The loss figure uses solid lines for means and dashed lines for 95th percentiles
 
 ## 2020 Elazığ-Sivrice event example
 
-`iris_event_depth_analysis.py` uses:
+`elazig_sivrice_depth_analysis.py` uses:
 
 - 2020-01-24 17:55:13
 - event code `2020024175513`
@@ -49,7 +49,7 @@ Therefore negative/red means the shallower gCMT depth produces a higher modelled
 
 ## Exact vulnerability function
 
-The Iris script also plots the exact model function:
+The Elazığ-Sivrice script also plots the exact model function:
 
 `MUR+CLBRS/LWAL/CDN+ERN/H:1/RES`
 

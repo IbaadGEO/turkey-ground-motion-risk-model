@@ -21,11 +21,11 @@ from akkar_turkey_portfolio_gwfm import (
 from map_plotting import plot_turkey_border
 
 
-OUTPUT_FOLDER = Path("outputs_gwfm") / "iris_event_analysis"
+OUTPUT_FOLDER = Path("outputs_gwfm") / "elazig_sivrice_analysis"
 VULNERABILITY_FIGURE = Path("outputs_gwfm") / "structural_vulnerability_curve.png"
 VULNERABILITY_POINTS_CSV = Path("outputs_gwfm") / "structural_vulnerability_curve_points.csv"
 
-IRIS_EVENT = {
+ELAZIG_SIVRICE_EVENT = {
     "event_id": "2020024175513",
     "origin_time": pd.Timestamp("2020-01-24 17:55:13"),
     "magnitude": 6.7,
@@ -51,8 +51,8 @@ def build_scenarios(exposure):
     exposure = exposure.reset_index(drop=True).copy()
     repi = np.asarray(
         haversine_distance_km(
-            IRIS_EVENT["latitude"],
-            IRIS_EVENT["longitude"],
+            ELAZIG_SIVRICE_EVENT["latitude"],
+            ELAZIG_SIVRICE_EVENT["longitude"],
             exposure["latitude"],
             exposure["longitude"],
         ),
@@ -65,13 +65,13 @@ def build_scenarios(exposure):
         for index, location in exposure.iterrows():
             rows.append(
                 {
-                    "event_id": IRIS_EVENT["event_id"],
-                    "origin_time": IRIS_EVENT["origin_time"],
-                    "magnitude": IRIS_EVENT["magnitude"],
-                    "magnitude_type": IRIS_EVENT["magnitude_type"],
-                    "rake": IRIS_EVENT["rake"],
-                    "source_latitude": IRIS_EVENT["latitude"],
-                    "source_longitude": IRIS_EVENT["longitude"],
+                    "event_id": ELAZIG_SIVRICE_EVENT["event_id"],
+                    "origin_time": ELAZIG_SIVRICE_EVENT["origin_time"],
+                    "magnitude": ELAZIG_SIVRICE_EVENT["magnitude"],
+                    "magnitude_type": ELAZIG_SIVRICE_EVENT["magnitude_type"],
+                    "rake": ELAZIG_SIVRICE_EVENT["rake"],
+                    "source_latitude": ELAZIG_SIVRICE_EVENT["latitude"],
+                    "source_longitude": ELAZIG_SIVRICE_EVENT["longitude"],
                     "depth_source": depth["depth_source"],
                     "depth_label": depth["depth_label"],
                     "source_depth_km": depth["depth_km"],
@@ -109,7 +109,9 @@ def calculate_outputs():
     if not structural_loss["structural_loss_ratio_mean"].between(
         0.0, 1.0, inclusive="both"
     ).all():
-        raise ValueError("Iris structural loss ratios must lie between 0 and 1.")
+        raise ValueError(
+            "Elazığ-Sivrice structural loss ratios must lie between 0 and 1."
+        )
 
     return structural_loss, vulnerability
 
@@ -253,7 +255,7 @@ def build_map_data(results):
 def plot_loss_map(map_data):
     near = map_data[map_data["repi_km"] <= MAP_MAX_REPI_KM].copy()
     if near.empty:
-        raise ValueError("No Iris receivers lie within 150 km.")
+        raise ValueError("No Elazığ-Sivrice receivers lie within 150 km.")
 
     values = near["loss_ratio_difference"].to_numpy(float)
     maximum = float(np.abs(values).max())
@@ -277,8 +279,8 @@ def plot_loss_map(map_data):
         zorder=3,
     )
     ax.scatter(
-        IRIS_EVENT["longitude"],
-        IRIS_EVENT["latitude"],
+        ELAZIG_SIVRICE_EVENT["longitude"],
+        ELAZIG_SIVRICE_EVENT["latitude"],
         marker="*",
         s=240,
         color="tab:blue",
@@ -311,7 +313,10 @@ def plot_loss_map(map_data):
     ax.annotate(
         "Red = gCMT predicts\nhigher structural loss",
         xy=(strongest["receiver_longitude"], strongest["receiver_latitude"]),
-        xytext=(IRIS_EVENT["longitude"] - 0.9, IRIS_EVENT["latitude"] + 0.9),
+        xytext=(
+            ELAZIG_SIVRICE_EVENT["longitude"] - 0.9,
+            ELAZIG_SIVRICE_EVENT["latitude"] + 0.9,
+        ),
         arrowprops={"arrowstyle": "->", "color": "0.15"},
         color="tab:red",
         fontsize=9,
@@ -324,7 +329,10 @@ def plot_loss_map(map_data):
     ax.annotate(
         f"{zero_count}/{len(near)} receivers:\nzero structural-loss difference",
         xy=(zero_row["receiver_longitude"], zero_row["receiver_latitude"]),
-        xytext=(IRIS_EVENT["longitude"] + 0.65, IRIS_EVENT["latitude"] + 0.45),
+        xytext=(
+            ELAZIG_SIVRICE_EVENT["longitude"] + 0.65,
+            ELAZIG_SIVRICE_EVENT["latitude"] + 0.45,
+        ),
         arrowprops={"arrowstyle": "->", "color": "0.15"},
         fontsize=9,
     )
@@ -437,8 +445,8 @@ def main():
     plot_loss_map(map_data)
     plot_vulnerability_curve(vulnerability)
 
-    print("2020 Elazığ-Sivrice event analysis complete.")
-    print("Event:", IRIS_EVENT["event_id"])
+    print("2020 Elazig-Sivrice event analysis complete.")
+    print("Event:", ELAZIG_SIVRICE_EVENT["event_id"])
     print("Depth scenarios:", len(DEPTH_SCENARIOS))
     print("Receiver-level loss rows:", len(results))
     print("\nNearest receiver:")

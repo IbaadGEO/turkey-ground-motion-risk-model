@@ -74,7 +74,7 @@ including its PGA-depth figure, loss-difference map and exact GEM
 vulnerability curve, run:
 
 ```powershell
-python iris_event_depth_analysis.py
+python elazig_sivrice_depth_analysis.py
 ```
 
 ## Vs30 Data
@@ -146,7 +146,7 @@ boxplot settings and axes is in
 [`docs/CATALOGUE_BOXPLOT_WALKTHROUGH.md`](docs/CATALOGUE_BOXPLOT_WALKTHROUGH.md).
 
 Presentation-specific Elazığ-Sivrice event outputs are saved in
-`outputs_gwfm/iris_event_analysis`:
+`outputs_gwfm/elazig_sivrice_analysis`:
 
 - `elazig_sivrice_complete_results.csv`: all 3 depth scenarios across 311 receivers;
 - `elazig_sivrice_depth_summary.csv`: compact summary for the 10, 12 and 14 km depths;

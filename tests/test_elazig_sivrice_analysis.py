@@ -2,16 +2,16 @@ import unittest
 
 import pandas as pd
 
-from iris_event_depth_analysis import (
+from elazig_sivrice_depth_analysis import (
     COMPARISON_SOURCE,
     DEPTH_SCENARIOS,
-    IRIS_EVENT,
+    ELAZIG_SIVRICE_EVENT,
     REFERENCE_SOURCE,
     build_map_data,
 )
 
 
-class TestIrisEventPresentationConfig(unittest.TestCase):
+class TestElazigSivricePresentationConfig(unittest.TestCase):
     def test_depths(self):
         depths = {row["depth_source"]: row["depth_km"] for row in DEPTH_SCENARIOS}
         self.assertEqual(depths["wilber3_usgs"], 10.0)
@@ -50,11 +50,11 @@ class TestIrisEventPresentationConfig(unittest.TestCase):
         self.assertAlmostEqual(result["loss_ratio_difference"], -0.10)
 
     def test_event_metadata(self):
-        self.assertEqual(IRIS_EVENT["event_id"], "2020024175513")
-        self.assertAlmostEqual(IRIS_EVENT["magnitude"], 6.7)
-        self.assertAlmostEqual(IRIS_EVENT["latitude"], 38.3897)
-        self.assertAlmostEqual(IRIS_EVENT["longitude"], 39.0883)
-        self.assertAlmostEqual(IRIS_EVENT["rake"], -12.0)
+        self.assertEqual(ELAZIG_SIVRICE_EVENT["event_id"], "2020024175513")
+        self.assertAlmostEqual(ELAZIG_SIVRICE_EVENT["magnitude"], 6.7)
+        self.assertAlmostEqual(ELAZIG_SIVRICE_EVENT["latitude"], 38.3897)
+        self.assertAlmostEqual(ELAZIG_SIVRICE_EVENT["longitude"], 39.0883)
+        self.assertAlmostEqual(ELAZIG_SIVRICE_EVENT["rake"], -12.0)
 
 
 if __name__ == "__main__":

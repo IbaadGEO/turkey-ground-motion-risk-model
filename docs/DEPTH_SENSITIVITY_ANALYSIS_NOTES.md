@@ -53,9 +53,9 @@ The common-event results are also grouped into deeper, shallower and same-depth 
   - Mean and 95th percentile absolute loss-ratio difference for the common-event set.
 
 The event-specific presentation example is now handled separately by
-`iris_event_depth_analysis.py`. It uses the 24 January 2020 Mww 6.7 Iris event
-and does not alter the validated 117-event catalogue-wide depth-sensitivity
-analysis.
+`elazig_sivrice_depth_analysis.py`. It uses the 24 January 2020 Mww 6.7
+Elazığ-Sivrice earthquake, selected by Iris, and does not alter the validated
+117-event catalogue-wide depth-sensitivity analysis.
 
 ## Important interpretation
 

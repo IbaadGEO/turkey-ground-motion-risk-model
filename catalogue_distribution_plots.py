@@ -1,4 +1,4 @@
-"""Compare PGA and structural loss across earthquake depth catalogues."""
+"""Compare PGA, structural loss and source depth across earthquake catalogues."""
 
 from pathlib import Path
 
@@ -22,6 +22,7 @@ OUTPUT_FOLDER = BASE_DIR / "outputs_gwfm" / "depth_sensitivity_analysis"
 EVENT_VALUES_FILE = OUTPUT_FOLDER / "catalogue_boxplot_event_maxima.csv"
 SUMMARY_FILE = OUTPUT_FOLDER / "catalogue_boxplot_summary.csv"
 FIGURE_FILE = OUTPUT_FOLDER / "catalogue_pga_loss_boxplots.png"
+DEPTH_FIGURE_FILE = OUTPUT_FOLDER / "catalogue_depth_boxplot.png"
 
 SOURCE_ORDER = ("waveform", "isc_ehb", "global_cmt")
 SOURCE_LABELS = {
@@ -38,6 +39,7 @@ SOURCE_COLOURS = {
 REQUIRED_COLUMNS = {
     "event_id",
     "depth_source",
+    "source_depth_km",
     "maximum_pga_g",
     "maximum_structural_loss_ratio",
 }
@@ -63,7 +65,7 @@ def load_event_summary(input_file=INPUT_FILE):
 
 
 def prepare_common_event_values(summary):
-    """Return balanced event-level maxima for the three depth catalogues."""
+    """Return balanced event-level values for the three depth catalogues."""
     summary = summary.copy()
     summary["event_id"] = summary["event_id"].astype(str)
 
@@ -94,11 +96,14 @@ def prepare_common_event_values(summary):
         )
 
     numeric_columns = [
+        "source_depth_km",
         "maximum_pga_g",
         "maximum_structural_loss_ratio",
     ]
     if not np.isfinite(values[numeric_columns].to_numpy(float)).all():
-        raise ValueError("PGA and structural-loss values must be finite.")
+        raise ValueError("Depth, PGA and structural-loss values must be finite.")
+    if (values["source_depth_km"] <= 0.0).any():
+        raise ValueError("Source depths must be greater than zero.")
     if (values["maximum_pga_g"] <= 0.0).any():
         raise ValueError("Maximum PGA values must be greater than zero.")
     if not values["maximum_structural_loss_ratio"].between(0.0, 1.0).all():
@@ -119,17 +124,29 @@ def prepare_common_event_values(summary):
 
 
 def summarise_catalogue_distributions(values):
-    """Build the numerical summary reported alongside the figure."""
+    """Build the numerical summary reported alongside the figures."""
     rows = []
     for source in SOURCE_ORDER:
         source_values = values[values["depth_source"] == source]
+        depth = source_values["source_depth_km"]
         pga = source_values["maximum_pga_g"]
         loss = source_values["maximum_structural_loss_ratio"]
+
+        depth_p25 = depth.quantile(0.25)
+        depth_p75 = depth.quantile(0.75)
+
         rows.append(
             {
                 "depth_source": source,
                 "catalogue_label": SOURCE_LABELS[source],
                 "event_count": len(source_values),
+                "p25_source_depth_km": depth_p25,
+                "median_source_depth_km": depth.median(),
+                "p75_source_depth_km": depth_p75,
+                "iqr_source_depth_km": depth_p75 - depth_p25,
+                "mean_source_depth_km": depth.mean(),
+                "largest_source_depth_km": depth.max(),
+                "depth_above_30_km_event_count": int((depth > 30.0).sum()),
                 "p25_event_maximum_pga_g": pga.quantile(0.25),
                 "median_event_maximum_pga_g": pga.median(),
                 "p75_event_maximum_pga_g": pga.quantile(0.75),
@@ -169,7 +186,14 @@ def _draw_boxplots_and_points(ax, values, column):
 
     event_ids = sorted(values["event_id"].unique())
     jitter_by_event = dict(
-        zip(event_ids, np.random.default_rng(20260824).uniform(-0.16, 0.16, len(event_ids)))
+        zip(
+            event_ids,
+            np.random.default_rng(20260824).uniform(
+                -0.16,
+                0.16,
+                len(event_ids),
+            ),
+        )
     )
     for position, source in enumerate(SOURCE_ORDER, start=1):
         source_values = values[values["depth_source"] == source].copy()
@@ -257,6 +281,49 @@ def plot_catalogue_distributions(values, output_file=FIGURE_FILE):
     plt.close(fig)
 
 
+def plot_depth_distribution(values, output_file=DEPTH_FIGURE_FILE):
+    """Plot source-depth distributions for the same balanced event set."""
+    output_file = Path(output_file)
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+
+    event_count = values["event_id"].nunique()
+    fig, ax = plt.subplots(figsize=(7.4, 6.4))
+
+    _draw_boxplots_and_points(ax, values, "source_depth_km")
+    ax.set_ylabel("Source depth (km)")
+    ax.set_title(
+        f"Depth distribution across {event_count} common earthquakes"
+    )
+
+    ax.axhline(
+        30.0,
+        color="0.35",
+        linestyle="--",
+        linewidth=1.2,
+        label="30 km GMPE depth limit",
+        zorder=1,
+    )
+    ax.legend(loc="upper right")
+
+    maximum_depth = float(values["source_depth_km"].max())
+    ax.set_ylim(0.0, 1.08 * maximum_depth)
+
+    fig.text(
+        0.5,
+        0.018,
+        "Each dot is the source depth for the same earthquake in one catalogue. "
+        "Boxes show the median and interquartile range; whiskers extend to "
+        "1.5 × IQR. The y-axis is linear.",
+        ha="center",
+        va="bottom",
+        fontsize=9,
+        color="0.3",
+    )
+    fig.tight_layout(rect=(0.0, 0.07, 1.0, 0.98))
+    fig.savefig(output_file, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+
+
 def main():
     OUTPUT_FOLDER.mkdir(parents=True, exist_ok=True)
     summary = load_event_summary()
@@ -267,6 +334,7 @@ def main():
         "event_id",
         "depth_source",
         "catalogue_label",
+        "source_depth_km",
         "maximum_pga_g",
         "maximum_structural_loss_ratio",
         "maximum_structural_loss_percent",
@@ -274,12 +342,28 @@ def main():
     values[output_columns].to_csv(EVENT_VALUES_FILE, index=False)
     distribution_summary.to_csv(SUMMARY_FILE, index=False)
     plot_catalogue_distributions(values)
+    plot_depth_distribution(values)
 
     print("Catalogue distribution comparison complete.")
     print("Common earthquakes:", values["event_id"].nunique())
     print("Saved:", FIGURE_FILE)
+    print("Saved:", DEPTH_FIGURE_FILE)
     print("Saved:", EVENT_VALUES_FILE)
     print("Saved:", SUMMARY_FILE)
+    print("\nDepth summary:")
+    print(
+        distribution_summary[
+            [
+                "catalogue_label",
+                "p25_source_depth_km",
+                "median_source_depth_km",
+                "p75_source_depth_km",
+                "iqr_source_depth_km",
+                "mean_source_depth_km",
+                "depth_above_30_km_event_count",
+            ]
+        ].to_string(index=False)
+    )
 
 
 if __name__ == "__main__":

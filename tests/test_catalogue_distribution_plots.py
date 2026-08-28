@@ -1,4 +1,4 @@
-import tempfile
+﻿import tempfile
 import unittest
 from pathlib import Path
 
@@ -6,6 +6,7 @@ import pandas as pd
 
 from catalogue_distribution_plots import (
     plot_catalogue_distributions,
+    plot_depth_distribution,
     prepare_common_event_values,
     summarise_catalogue_distributions,
 )
@@ -14,15 +15,16 @@ from catalogue_distribution_plots import (
 def make_event_summary():
     rows = []
     sources = ("waveform", "isc_ehb", "global_cmt")
-    for event_id, pga_base, loss_base in [
-        ("1", 0.10, 0.00),
-        ("2", 0.20, 0.02),
+    for event_id, depth_base, pga_base, loss_base in [
+        ("1", 10.0, 0.10, 0.00),
+        ("2", 20.0, 0.20, 0.02),
     ]:
         for source_index, source in enumerate(sources, start=1):
             rows.append(
                 {
                     "event_id": event_id,
                     "depth_source": source,
+                    "source_depth_km": depth_base * source_index,
                     "maximum_pga_g": pga_base * source_index,
                     "maximum_structural_loss_ratio": loss_base * source_index,
                 }
@@ -33,6 +35,7 @@ def make_event_summary():
         {
             "event_id": "3",
             "depth_source": "waveform",
+            "source_depth_km": 15.0,
             "maximum_pga_g": 0.05,
             "maximum_structural_loss_ratio": 0.0,
         }
@@ -46,35 +49,60 @@ class CatalogueDistributionPlotTests(unittest.TestCase):
 
         self.assertEqual(len(values), 6)
         self.assertEqual(values["event_id"].nunique(), 2)
-        self.assertEqual(set(values["depth_source"]), {
-            "waveform",
-            "isc_ehb",
-            "global_cmt",
-        })
+        self.assertEqual(
+            set(values["depth_source"]),
+            {"waveform", "isc_ehb", "global_cmt"},
+        )
+        self.assertAlmostEqual(values["source_depth_km"].max(), 60.0)
         self.assertAlmostEqual(
             values["maximum_structural_loss_percent"].max(),
             6.0,
         )
 
-    def test_distribution_summary_reports_zero_loss_events(self):
+    def test_distribution_summary_reports_depth_and_zero_loss_events(self):
         values = prepare_common_event_values(make_event_summary())
         summary = summarise_catalogue_distributions(values)
 
         self.assertTrue((summary["event_count"] == 2).all())
         self.assertTrue((summary["zero_loss_event_count"] == 1).all())
+
         waveform = summary[summary["depth_source"] == "waveform"].iloc[0]
+        self.assertAlmostEqual(waveform["median_source_depth_km"], 15.0)
+        self.assertAlmostEqual(waveform["iqr_source_depth_km"], 5.0)
+        self.assertEqual(waveform["depth_above_30_km_event_count"], 0)
         self.assertAlmostEqual(
             waveform["largest_event_maximum_pga_g"],
             0.20,
         )
 
-    def test_plot_is_written(self):
+        isc_ehb = summary[summary["depth_source"] == "isc_ehb"].iloc[0]
+        self.assertEqual(isc_ehb["depth_above_30_km_event_count"], 1)
+
+        global_cmt = summary[summary["depth_source"] == "global_cmt"].iloc[0]
+        self.assertEqual(global_cmt["depth_above_30_km_event_count"], 1)
+
+    def test_pga_loss_plot_is_written(self):
         values = prepare_common_event_values(make_event_summary())
         with tempfile.TemporaryDirectory() as temp_directory:
             output_file = Path(temp_directory) / "comparison.png"
             plot_catalogue_distributions(values, output_file)
             self.assertTrue(output_file.is_file())
             self.assertGreater(output_file.stat().st_size, 0)
+
+    def test_depth_plot_is_written(self):
+        values = prepare_common_event_values(make_event_summary())
+        with tempfile.TemporaryDirectory() as temp_directory:
+            output_file = Path(temp_directory) / "depth_comparison.png"
+            plot_depth_distribution(values, output_file)
+            self.assertTrue(output_file.is_file())
+            self.assertGreater(output_file.stat().st_size, 0)
+
+    def test_invalid_depth_is_rejected(self):
+        summary = make_event_summary()
+        summary.loc[0, "source_depth_km"] = 0.0
+
+        with self.assertRaisesRegex(ValueError, "greater than zero"):
+            prepare_common_event_values(summary)
 
     def test_invalid_loss_ratio_is_rejected(self):
         summary = make_event_summary()

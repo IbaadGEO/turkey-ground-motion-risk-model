@@ -14,12 +14,13 @@ For each valid earthquake depth and location, the program calculates PGA, PGV,
 SA(0.2 s) and SA(1.0 s). PGA is then used with a GEM residential structural
 vulnerability curve to estimate a mean structural loss ratio between 0 and 1.
 
-## Setup
+## Python setup
 
-The project has been run successfully on Windows with Python 3.13.7. A Python
-3.12 Windows setup is also kept for reproducibility.
+The project has been tested on Windows with Python 3.13.7. A Python 3.12
+requirements file is also retained for reproducibility.
 
-For Python 3.13:
+Create and activate a virtual environment, upgrade `pip`, then install the
+requirements for the Python version being used:
 
 ```powershell
 python -m venv .venv
@@ -28,14 +29,231 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements-windows-py313.txt
 ```
 
-For Python 3.12:
+For Python 3.12, create the environment with `py -3.12 -m venv .venv` and use
+`requirements-windows-py312.txt` instead.
 
-```powershell
-py -3.12 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install -r requirements-windows-py312.txt
-```
+The common dependencies are listed in `requirements.txt`: NumPy, pandas,
+Matplotlib, OpenQuake Engine, rasterio and `affine<3`.
+
+## Project data, software and research sources
+
+This section records the external datasets, project input files, software
+implementations and research papers used directly by the workflow. Papers
+reviewed only as background are not listed as model inputs.
+
+### Earthquake catalogue and depth sources
+
+**Global Waveform-Modelled Earthquake Catalogue (gWFM)**
+
+- Production catalogue: `data/gwfm_v1_2_clean.csv`
+- Selected-event file: `data/gwfm_117_event_selection.csv`
+- Catalogue version: gWFM v1.2
+- Source: COMET Global Waveform Catalogue
+- Catalogue page: <https://comet.nerc.ac.uk/gwfm_catalogue/gWFM_catalogue.html>
+- The project uses 117 selected earthquakes matched uniquely to gWFM.
+- Waveform-modelled depth is the baseline depth in the main sensitivity
+  analysis.
+
+Reference:
+
+Wimpenny, S. & Watson, C. S. (2021). *gWFM: A Global Catalog of
+Moderate-Magnitude Earthquakes Studied Using Teleseismic Body Waves*.
+Seismological Research Letters, 92(1), 212-226.
+<https://doi.org/10.1785/0220200218>
+
+**ISC-EHB depths**
+
+The ISC-EHB values used by this project are the depth fields already carried
+in the gWFM v1.2 input and retained in `data/gwfm_v1_2_clean.csv`; they are not
+downloaded separately during a normal model run.
+
+Key references:
+
+- Engdahl, E. R., van der Hilst, R. & Buland, R. (1998). *Global teleseismic
+  earthquake relocation with improved travel times and procedures for depth
+  determination*. Bulletin of the Seismological Society of America, 88(3),
+  722-743. <https://doi.org/10.1785/BSSA0880030722>
+- Weston, J., Engdahl, E. R., Harris, J., Di Giacomo, D. & Storchak, D. A.
+  (2018). *ISC-EHB: Reconstruction of a robust earthquake dataset*.
+  Geophysical Journal International, 214(1), 474-484.
+  <https://doi.org/10.1093/gji/ggy155>
+- Engdahl, E. R., Di Giacomo, D., Sakarya, B., Gkarlaouni, C. G., Harris, J.
+  & Storchak, D. A. (2020). *ISC-EHB 1964-2016, an improved data set for
+  studies of Earth structure and global seismicity*. Earth and Space Science,
+  7, e2019EA000897. <https://doi.org/10.1029/2019EA000897>
+
+Official ISC-EHB information: <https://isc.ac.uk/isc-ehb/>
+
+**Global CMT depths**
+
+Global CMT values are also taken from the gWFM v1.2 input rather than queried
+live during the calculation.
+
+Reference:
+
+Ekström, G., Nettles, M. & Dziewoński, A. M. (2012). *The global CMT project
+2004-2010: Centroid-moment tensors for 13,017 earthquakes*. Physics of the
+Earth and Planetary Interiors, 200-201, 1-9.
+<https://doi.org/10.1016/j.pepi.2012.04.002>
+
+Global CMT project: <https://www.globalcmt.org/>
+
+### Ground-motion model
+
+Ground motion is calculated with the hypocentral-distance form of the
+Akkar-Sandikkaya-Bommer model, implemented in OpenQuake HazardLib as
+`AkkarEtAlRhyp2014`.
+
+The model receives magnitude, rake, Vs30 and hypocentral distance and is used
+here to calculate PGA, PGV, SA(0.2 s) and SA(1.0 s).
+
+Reference:
+
+Akkar, S., Sandıkkaya, M. A. & Bommer, J. J. (2014). *Empirical ground-motion
+models for point- and extended-source crustal earthquake scenarios in Europe
+and the Middle East*. Bulletin of Earthquake Engineering, 12, 359-387.
+<https://doi.org/10.1007/s10518-013-9461-4>
+
+The repository flags source depths above 30 km and source-receiver distances
+above 200 km because these lie outside the main stated applicability range of
+the model.
+
+Software implementation:
+
+- OpenQuake Engine / HazardLib, GEM Foundation
+- Project requirements use the OpenQuake Engine 3.26 dependency set
+- Documentation: <https://docs.openquake.org/oq-engine/3.26/manual/>
+- Source: <https://github.com/gem/oq-engine>
+
+### Vs30 site-condition data
+
+Vs30 is taken from the Türkiye-specific `TRVs30_GeoM` model.
+
+Production input:
+
+- local raster: `data/external/TRVs30GeoM_9Arcsec.tif`
+- model input: `data/turkey_50km_land_grid_vs30.csv`
+- 311 receiver locations
+- 304 direct raster samples
+- 7 nearest-valid samples within the 10 km fallback limit
+- the large source raster is intentionally excluded from Git
+
+Higher-resolution validation:
+
+- local raster: `data/external/TRVs30GeoM_3Arcsec.tif`
+- used by `vs30_raster_comparison.py`
+- used to validate the spatial pattern and receiver-level values without
+  replacing the production 9-arcsecond input
+
+Dataset:
+
+Okay, H. B. & Özacar, A. A. (2023). *TRVs30_GeoM - Türkiye Vs30 Model by
+Geological Engineering Department of METU*. Zenodo.
+<https://doi.org/10.5281/zenodo.10149864>
+
+Research paper:
+
+Okay, H. B. & Özacar, A. A. (2024). *A Novel VS30 Prediction Strategy Taking
+Fluid Saturation into Account and a New VS30 Model of Türkiye*. Bulletin of
+the Seismological Society of America, 114(2), 1048-1065.
+<https://doi.org/10.1785/0120230032>
+
+Derived exposure-grid files:
+
+- `data/turkey_50km_land_grid.csv`: validated 311-location production grid
+- `data/turkey_50km_land_grid_vs30.csv`: production grid with Vs30
+- `data/turkey_20km_land_grid.csv` and `data/turkey_20km_land_grid_vs30.csv`:
+  fine-grid case-study inputs
+- `data/turkey_10km_land_grid.csv` and `data/turkey_10km_land_grid_vs30.csv`:
+  higher-resolution fine-grid case-study inputs
+
+The 10 km and 20 km grids are case-study/presentation grids and do not replace
+the validated 50 km production grid.
+
+### Structural vulnerability model
+
+Structural loss ratios use the GEM Foundation Global Seismic Vulnerability
+Model v2026.0.0.
+
+Repository input:
+
+- `data/gem_vulnerability_v2026/vulnerability_structural.xml`
+- selected function: `MUR+CLBRS/LWAL/CDN+ERN/H:1/RES`
+- selected intensity measure: PGA in g
+- only structural loss is used
+- contents, nonstructural and fatalities/occupants models are excluded
+- licence: CC BY-NC-SA 4.0; the repository includes the licence text
+
+Dataset:
+
+Nafeh, A. M. B., Aljawhari, K. & Silva, V. (2026). *Global Seismic
+Vulnerability Model (v2026.0.0)*. Zenodo.
+<https://doi.org/10.5281/zenodo.20730225>
+
+Structural vulnerability paper:
+
+Aljawhari, K., Nafeh, A. M. B. & Silva, V. (2026). *A new global
+vulnerability model for regional seismic risk assessments: Part 1 -
+structural vulnerability*. Bulletin of Earthquake Engineering.
+<https://doi.org/10.1007/s10518-026-02443-7>
+
+GEM source repository:
+<https://github.com/gem/global_vulnerability_model/tree/v2026.0.0>
+
+### Turkey boundary and mapping data
+
+The Turkey outline used for grid generation and plotting is stored in
+`data/turkey_boundary.geojson`.
+
+Source:
+
+- Natural Earth `ne_50m_admin_0_countries`
+- version 5.1.2
+- public domain
+- source repository:
+  <https://github.com/nvkelso/natural-earth-vector/tree/v5.1.2>
+- terms: <https://www.naturalearthdata.com/about/terms-of-use/>
+
+The boundary is used for geographic clipping and visualisation rather than as
+an earthquake or ground-motion input.
+
+### 2020 Elazığ-Sivrice case-study inputs
+
+The separate case-study workflow in `elazig_sivrice_depth_analysis.py` uses:
+
+- origin time: 2020-01-24 17:55:13 UTC
+- event code: `2020024175513`
+- magnitude: Mww 6.7
+- latitude: 38.3897
+- longitude: 39.0883
+- Wilber3 / USGS depth: 10 km
+- Global CMT depth: 12 km
+- analysed depth: 14 km
+- representative rake: -12 degrees from the preferred USGS Mww moment tensor,
+  nodal plane 2
+
+USGS event page:
+<https://earthquake.usgs.gov/earthquakes/eventpage/us60007ewc/executive>
+
+The 14 km value is the separately analysed case-study depth used for the
+placement comparison; it is not presented as a routine catalogue value.
+
+### Derived repository files
+
+The following are project-derived files rather than independent external
+sources:
+
+- cleaned and selected catalogue CSVs in `data/`;
+- 10 km, 20 km and 50 km exposure-grid CSVs;
+- sampled Vs30 CSVs;
+- ground-motion and structural-loss result CSVs;
+- depth-sensitivity summaries;
+- catalogue-distribution summaries;
+- Elazığ-Sivrice case-study CSVs; and
+- all figures under `outputs_gwfm/`.
+
+These files should be traced back to the source datasets and references above
+rather than cited as independent external datasets.
 
 ## Run
 

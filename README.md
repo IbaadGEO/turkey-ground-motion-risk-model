@@ -14,6 +14,21 @@ For each valid earthquake depth and location, the program calculates PGA, PGV,
 SA(0.2 s) and SA(1.0 s). PGA is then used with a GEM residential structural
 vulnerability curve to estimate a mean structural loss ratio between 0 and 1.
 
+## Interactive visualisation
+
+This GitHub repository is the primary project record for the scientific
+methodology, source data, code, tests and derived outputs.
+
+An optional browser-based dashboard is also available for visually exploring
+the Turkey boundary, earthquake locations, the 50 km Vs30 receiver grid,
+catalogue depth alternatives, PGA and structural-loss summaries:
+
+**[Open the interactive dashboard](https://ibaadgeo.github.io/turkey-ground-motion-risk-model/)**
+
+The dashboard is a visual companion to the repository. It reads published
+project outputs from the repository and does not replace the documented Python
+workflow or rerun the ground-motion and vulnerability calculations in the
+browser.
 ## Python setup
 
 The project has been tested on Windows with Python 3.13.7. A Python 3.12

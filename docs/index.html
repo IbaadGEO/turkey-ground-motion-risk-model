@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>Turkey Ground-Motion Explorer</title>
+  <meta
+    name="description"
+    content="Interactive exploration of earthquake catalogue depths, receiver Vs30 values, PGA and structural-loss summaries for the Turkey ground-motion project."
+  >
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  >
+  <link rel="stylesheet" href="./dashboard.css?v=20260828-2">
+</head>
+<body>
+  <header class="site-header">
+    <div>
+      <p class="eyebrow">Interactive project explorer</p>
+      <h1>Turkey Ground-Motion &amp; Depth Sensitivity</h1>
+      <p class="subtitle">
+        Explore the selected earthquake catalogue, 50 km receiver grid, Vs30,
+        source-depth alternatives and event-level PGA/loss summaries.
+      </p>
+    </div>
+    <a
+      class="repo-link"
+      href="https://github.com/IbaadGEO/turkey-ground-motion-risk-model"
+      target="_blank"
+      rel="noreferrer"
+    >
+      View repository
+    </a>
+  </header>
+
+  <div id="loading-banner" class="loading-banner" role="status">
+    Loading repository data&hellip;
+  </div>
+
+  <div id="error-banner" class="error-banner" hidden></div>
+
+  <main class="dashboard-shell">
+    <aside class="control-panel" aria-label="Dashboard controls">
+      <section class="panel-section">
+        <h2>Explore events</h2>
+
+        <label for="event-select">Earthquake</label>
+        <select id="event-select"></select>
+
+        <label class="checkbox-row">
+          <input id="common-only" type="checkbox" checked>
+          <span>Only events with all three depth sources</span>
+        </label>
+
+        <label for="source-select">Depth source</label>
+        <select id="source-select">
+          <option value="waveform">gWFM</option>
+          <option value="isc_ehb">ISC-EHB</option>
+          <option value="global_cmt">gCMT</option>
+        </select>
+      </section>
+
+      <section class="panel-section">
+        <h2>Map layers</h2>
+
+        <label class="checkbox-row">
+          <input id="show-receivers" type="checkbox" checked>
+          <span>50 km Vs30 receivers</span>
+        </label>
+
+        <label class="checkbox-row">
+          <input id="show-events" type="checkbox" checked>
+          <span>Earthquake locations</span>
+        </label>
+
+        <button id="fit-turkey" class="secondary-button" type="button">
+          Reset map extent
+        </button>
+      </section>
+
+      <section class="panel-section stats-section">
+        <h2>Data coverage</h2>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <span id="stat-events" class="stat-number">&ndash;</span>
+            <span class="stat-label">selected events</span>
+          </div>
+          <div class="stat-card">
+            <span id="stat-common" class="stat-number">&ndash;</span>
+            <span class="stat-label">3-source events</span>
+          </div>
+          <div class="stat-card">
+            <span id="stat-receivers" class="stat-number">&ndash;</span>
+            <span class="stat-label">receivers</span>
+          </div>
+          <div class="stat-card">
+            <span id="stat-rows" class="stat-number">&ndash;</span>
+            <span class="stat-label">event-source rows</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel-section note-section">
+        <h2>Interpretation</h2>
+        <p>
+          PGA and structural loss shown here are event-level maxima across the
+          311 production receivers. The dashboard visualises existing model
+          outputs and does not rerun the GMPE or vulnerability calculations.
+        </p>
+      </section>
+    </aside>
+
+    <section class="main-content">
+      <div class="top-grid">
+        <section class="map-card">
+          <div id="map" aria-label="Interactive map of Turkey"></div>
+          <div class="map-legend" aria-label="Vs30 legend">
+            <strong>Vs30 (m/s)</strong>
+            <span><i class="swatch vs30-a"></i>&lt;300</span>
+            <span><i class="swatch vs30-b"></i>300&ndash;500</span>
+            <span><i class="swatch vs30-c"></i>500&ndash;700</span>
+            <span><i class="swatch vs30-d"></i>700&ndash;900</span>
+            <span><i class="swatch vs30-e"></i>&ge;900</span>
+          </div>
+        </section>
+
+        <aside class="event-card" aria-live="polite">
+          <p class="eyebrow">Selected earthquake</p>
+          <h2 id="event-title">Select an earthquake</h2>
+          <p id="event-origin" class="event-origin"></p>
+
+          <div class="event-metadata">
+            <div>
+              <span class="meta-label">Magnitude</span>
+              <strong id="event-magnitude">&ndash;</strong>
+            </div>
+            <div>
+              <span class="meta-label">Coordinates</span>
+              <strong id="event-coordinates">&ndash;</strong>
+            </div>
+            <div>
+              <span class="meta-label">Rake</span>
+              <strong id="event-rake">&ndash;</strong>
+            </div>
+            <div>
+              <span class="meta-label">Depth coverage</span>
+              <strong id="event-coverage">&ndash;</strong>
+            </div>
+          </div>
+
+          <div class="source-summary">
+            <div class="source-summary-header">
+              <span id="source-badge" class="source-badge">gWFM</span>
+              <span id="source-depth-status" class="depth-status">&ndash;</span>
+            </div>
+
+            <dl class="metric-list">
+              <div>
+                <dt>Source depth</dt>
+                <dd id="metric-depth">&ndash;</dd>
+              </div>
+              <div>
+                <dt>Maximum PGA</dt>
+                <dd id="metric-pga">&ndash;</dd>
+              </div>
+              <div>
+                <dt>Maximum structural loss</dt>
+                <dd id="metric-loss">&ndash;</dd>
+              </div>
+              <div>
+                <dt>Minimum hypocentral distance</dt>
+                <dd id="metric-rhypo">&ndash;</dd>
+              </div>
+              <div>
+                <dt>Receivers within 200 km</dt>
+                <dd id="metric-within200">&ndash;</dd>
+              </div>
+            </dl>
+          </div>
+
+          <div id="source-availability" class="availability-row"></div>
+
+          <a
+            id="share-link"
+            class="share-link"
+            href="#"
+          >
+            Copyable event view
+          </a>
+        </aside>
+      </div>
+
+      <section class="chart-section">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Same earthquake, different depth source</p>
+            <h2>Catalogue comparison</h2>
+          </div>
+          <p>
+            Bars update when a different earthquake is selected. Missing
+            catalogue values remain blank rather than being inferred.
+          </p>
+        </div>
+
+        <div class="chart-grid">
+          <article class="chart-card">
+            <h3>Source depth</h3>
+            <div id="depth-chart" class="plot"></div>
+          </article>
+          <article class="chart-card">
+            <h3>Maximum PGA</h3>
+            <div id="pga-chart" class="plot"></div>
+          </article>
+          <article class="chart-card">
+            <h3>Maximum structural loss</h3>
+            <div id="loss-chart" class="plot"></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="about-card">
+        <div>
+          <p class="eyebrow">What you are viewing</p>
+          <h2>Repository-backed visualisation</h2>
+        </div>
+        <p>
+          The Turkey outline is read from <code>data/turkey_boundary.geojson</code>.
+          Receiver locations and Vs30 values come from the validated 50 km
+          production grid, while earthquake depth, PGA and loss summaries are
+          loaded from the current model output on the repository's main branch.
+        </p>
+      </section>
+    </section>
+  </main>
+
+  <footer>
+    <span>Turkey Ground-Motion Model</span>
+    <span>Interactive dashboard v1</span>
+  </footer>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <script src="./dashboard.js?v=20260828-2"></script>
+</body>
+</html>

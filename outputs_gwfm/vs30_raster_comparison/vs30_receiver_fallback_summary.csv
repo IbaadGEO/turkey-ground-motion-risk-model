@@ -1,0 +1,2 @@
+receiver_count,direct_3arcsec_count,fallback_3arcsec_count,direct_3arcsec_percent,fallback_3arcsec_percent,direct_9arcsec_count,fallback_9arcsec_count,direct_9arcsec_percent,fallback_9arcsec_percent,fallback_in_both_count,fallback_only_3arcsec_count,fallback_only_9arcsec_count
+311,304,7,97.7491961414791,2.2508038585209005,304,7,97.7491961414791,2.2508038585209005,7,0,0

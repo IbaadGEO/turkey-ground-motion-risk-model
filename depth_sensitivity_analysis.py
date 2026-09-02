@@ -47,6 +47,10 @@ CONTINUOUS_DISTANCE_STEP_KM = 1.0
 KERNEL_BANDWIDTH_KM = 15.0
 PGA_CHANGE_TOLERANCE_PERCENT = 1e-9
 
+STRUCTURAL_LOSS_PRESENTATION_MAX_DISTANCE_KM = 100.0
+STRUCTURAL_LOSS_PRESENTATION_Y_LIMITS = (-2.5, 2.5)
+PRESENTATION_EXPORT_DPI = 300
+
 
 def load_results():
     if not INPUT_FILE.is_file():
@@ -558,6 +562,22 @@ def _add_sign_balance_text(fig, sign_balance, metric):
     )
 
 
+def clip_values_for_display(values, y_limits):
+    """Clip plotted values while preserving masks for boundary markers."""
+
+    lower, upper = map(float, y_limits)
+    if not np.isfinite([lower, upper]).all() or lower >= upper:
+        raise ValueError("Plot y-limits must be finite and increasing.")
+
+    original = np.asarray(values, dtype=float)
+    if not np.isfinite(original).all():
+        raise ValueError("Plotted sensitivity values must all be finite.")
+
+    below = original < lower
+    above = original > upper
+    return np.clip(original, lower, upper), below, above
+
+
 def _plot_signed_sensitivity(
     common_comparisons,
     continuous_summary,
@@ -570,11 +590,18 @@ def _plot_signed_sensitivity(
     title,
     direction_text,
     ylabel,
+    maximum_distance_km=PRESENTATION_MAX_DISTANCE_KM,
+    y_limits=None,
+    additional_filenames=(),
+    export_dpi=200,
+    tight_export=False,
 ):
     fig, ax = plt.subplots(figsize=(11, 7))
     in_range = common_comparisons[
-        common_comparisons["repi_km"] <= PRESENTATION_MAX_DISTANCE_KM
+        common_comparisons["repi_km"] <= maximum_distance_km
     ]
+    clipped_below_count = 0
+    clipped_above_count = 0
 
     for source in PLOT_SOURCE_ORDER:
         colour = SOURCE_COLOURS[source]
@@ -582,6 +609,10 @@ def _plot_signed_sensitivity(
         smooth = continuous_summary[
             (continuous_summary["comparison_source"] == source)
             & (continuous_summary["metric"] == metric)
+            & (
+                continuous_summary["epicentral_distance_km"]
+                <= maximum_distance_km
+            )
         ]
 
         x = smooth["epicentral_distance_km"].to_numpy(float)
@@ -592,14 +623,60 @@ def _plot_signed_sensitivity(
             smooth["empirical_standard_deviation"].to_numpy(float) * scale
         )
 
-        ax.scatter(
-            raw["repi_km"],
-            raw[value_column] * scale,
-            s=12,
-            alpha=0.16,
-            color=colour,
-            edgecolors="none",
-        )
+        raw_distances = raw["repi_km"].to_numpy(float)
+        raw_values = raw[value_column].to_numpy(float) * scale
+        if y_limits is None:
+            ax.scatter(
+                raw_distances,
+                raw_values,
+                s=12,
+                alpha=0.16,
+                color=colour,
+                edgecolors="none",
+            )
+        else:
+            displayed, below, above = clip_values_for_display(
+                raw_values,
+                y_limits,
+            )
+            within = ~(below | above)
+            ax.scatter(
+                raw_distances[within],
+                displayed[within],
+                s=12,
+                alpha=0.16,
+                color=colour,
+                edgecolors="none",
+            )
+
+            lower, upper = y_limits
+            boundary_offset = 0.025 * (upper - lower)
+            if below.any():
+                ax.scatter(
+                    raw_distances[below],
+                    np.full(below.sum(), lower + boundary_offset),
+                    marker="v",
+                    s=34,
+                    alpha=0.75,
+                    color=colour,
+                    edgecolors="white",
+                    linewidth=0.35,
+                    zorder=4,
+                )
+            if above.any():
+                ax.scatter(
+                    raw_distances[above],
+                    np.full(above.sum(), upper - boundary_offset),
+                    marker="^",
+                    s=34,
+                    alpha=0.75,
+                    color=colour,
+                    edgecolors="white",
+                    linewidth=0.35,
+                    zorder=4,
+                )
+            clipped_below_count += int(below.sum())
+            clipped_above_count += int(above.sum())
         ax.fill_between(
             x,
             mean - spread,
@@ -617,12 +694,47 @@ def _plot_signed_sensitivity(
         )
 
     ax.axhline(0.0, color="0.15", linewidth=1.1, zorder=1)
-    ax.set_xlim(0.0, PRESENTATION_MAX_DISTANCE_KM)
+    ax.set_xlim(0.0, maximum_distance_km)
+    if y_limits is not None:
+        ax.set_ylim(*y_limits)
     ax.set_xlabel("Epicentral distance (km)")
     ax.set_ylabel(ylabel)
     ax.set_title(f"{title}\n{direction_text}")
     ax.grid(alpha=0.22)
     ax.legend(loc="best")
+
+    if y_limits is not None and (
+        clipped_below_count or clipped_above_count
+    ):
+        clipped_parts = []
+        if clipped_below_count:
+            clipped_parts.append(
+                f"{clipped_below_count} event-receiver pairs fall below "
+                "displayed y-range"
+            )
+        if clipped_above_count:
+            clipped_parts.append(
+                f"{clipped_above_count} event-receiver pairs exceed "
+                "displayed y-range"
+            )
+        ax.text(
+            0.982,
+            0.035,
+            "Down/up triangles mark clipped display values\n"
+            + "; ".join(clipped_parts)
+            + ". All underlying pairs are retained.",
+            transform=ax.transAxes,
+            ha="right",
+            va="bottom",
+            fontsize=8.2,
+            color="0.25",
+            bbox={
+                "boxstyle": "round,pad=0.35",
+                "fc": "white",
+                "ec": "0.75",
+                "alpha": 0.94,
+            },
+        )
 
     _add_sign_balance_text(fig, sign_balance, metric)
     fig.text(
@@ -638,8 +750,23 @@ def _plot_signed_sensitivity(
         color="0.3",
     )
     fig.tight_layout(rect=(0.0, 0.18, 1.0, 1.0))
-    fig.savefig(OUTPUT_FOLDER / filename, dpi=200)
+    output_files = [OUTPUT_FOLDER / filename]
+    output_files.extend(OUTPUT_FOLDER / name for name in additional_filenames)
+    save_options = {"dpi": export_dpi}
+    if tight_export:
+        save_options["bbox_inches"] = "tight"
+    for output_file in output_files:
+        fig.savefig(output_file, **save_options)
     plt.close(fig)
+
+    return {
+        "maximum_distance_km": float(maximum_distance_km),
+        "y_limits": y_limits,
+        "clipped_below_count": clipped_below_count,
+        "clipped_above_count": clipped_above_count,
+        "displayed_pair_count": len(in_range),
+        "output_files": output_files,
+    }
 
 
 def plot_pga_sensitivity(
@@ -697,6 +824,78 @@ def plot_loss_sensitivity(
             "negative = lower loss"
         ),
         ylabel="Signed structural loss-ratio change (percentage points)",
+    )
+
+
+def plot_loss_sensitivity_presentation(
+    common_comparisons,
+    continuous_summary=None,
+    sign_balance=None,
+):
+    """Save the supervisor-requested 0-100 km structural-loss zoom."""
+
+    if continuous_summary is None:
+        continuous_summary = build_continuous_sensitivity_summary(
+            common_comparisons
+        )
+    if sign_balance is None:
+        sign_balance = summarise_sign_balance(common_comparisons)
+
+    return _plot_signed_sensitivity(
+        common_comparisons,
+        continuous_summary,
+        sign_balance,
+        value_column="loss_ratio_difference",
+        metric="loss_ratio",
+        scale=100.0,
+        filename="signed_structural_loss_sensitivity_0_100km.png",
+        additional_filenames=(
+            "signed_structural_loss_sensitivity_0_100km.pdf",
+        ),
+        title="Signed structural-loss sensitivity to catalogue depth",
+        direction_text=(
+            "Comparison catalogue minus gWFM: positive = higher loss; "
+            "negative = lower loss"
+        ),
+        ylabel="Signed structural loss-ratio change (percentage points)",
+        maximum_distance_km=STRUCTURAL_LOSS_PRESENTATION_MAX_DISTANCE_KM,
+        y_limits=STRUCTURAL_LOSS_PRESENTATION_Y_LIMITS,
+        export_dpi=PRESENTATION_EXPORT_DPI,
+        tight_export=True,
+    )
+
+
+def plot_pga_sensitivity_presentation(
+    common_comparisons,
+    continuous_summary=None,
+    sign_balance=None,
+):
+    """Save a high-resolution presentation export of the approved PGA plot."""
+
+    if continuous_summary is None:
+        continuous_summary = build_continuous_sensitivity_summary(
+            common_comparisons
+        )
+    if sign_balance is None:
+        sign_balance = summarise_sign_balance(common_comparisons)
+
+    return _plot_signed_sensitivity(
+        common_comparisons,
+        continuous_summary,
+        sign_balance,
+        value_column="pga_percent_change",
+        metric="pga_percent",
+        scale=1.0,
+        filename="signed_pga_sensitivity_presentation.png",
+        additional_filenames=("signed_pga_sensitivity_presentation.pdf",),
+        title="Signed PGA sensitivity to catalogue depth",
+        direction_text=(
+            "Comparison catalogue minus gWFM: positive = higher PGA; "
+            "negative = lower PGA"
+        ),
+        ylabel="Signed PGA change relative to gWFM (%)",
+        export_dpi=PRESENTATION_EXPORT_DPI,
+        tight_export=True,
     )
 
 

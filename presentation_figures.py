@@ -6,8 +6,8 @@ from depth_sensitivity_analysis import (
     build_continuous_sensitivity_summary,
     find_common_event_ids,
     load_results,
-    plot_loss_sensitivity,
-    plot_pga_sensitivity,
+    plot_loss_sensitivity_presentation,
+    plot_pga_sensitivity_presentation,
     summarise_sign_balance,
 )
 
@@ -34,26 +34,35 @@ def main():
         index=False,
     )
 
-    plot_pga_sensitivity(
+    pga_plot = plot_pga_sensitivity_presentation(
         common_comparisons,
         continuous_summary,
         sign_balance,
     )
-    plot_loss_sensitivity(
+    loss_plot = plot_loss_sensitivity_presentation(
         common_comparisons,
         continuous_summary,
         sign_balance,
     )
-
-    legacy_map = OUTPUT_FOLDER / "event_1421_global_cmt_loss_difference_map.png"
-    if legacy_map.exists():
-        legacy_map.unlink()
 
     pair_count = int(sign_balance["pair_count"].max())
     print("Signed presentation depth-sensitivity figures regenerated.")
     print("Common three-catalogue events:", len(common_event_ids))
     print("Paired rows within 200 km per comparison source:", pair_count)
     print("Catalogue colours: gCMT = blue; ISC-EHB = orange.")
+    print("PGA presentation files:")
+    for output_file in pga_plot["output_files"]:
+        print(" ", output_file)
+    print("Structural-loss presentation files:")
+    for output_file in loss_plot["output_files"]:
+        print(" ", output_file)
+    print(
+        "Structural-loss display clipping:",
+        loss_plot["clipped_below_count"],
+        "below and",
+        loss_plot["clipped_above_count"],
+        "above the y-range.",
+    )
 
 
 if __name__ == "__main__":

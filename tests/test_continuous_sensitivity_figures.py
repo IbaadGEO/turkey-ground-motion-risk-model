@@ -5,6 +5,7 @@ import pandas as pd
 
 from depth_sensitivity_analysis import (
     build_continuous_sensitivity_summary,
+    clip_values_for_display,
     summarise_sign_balance,
 )
 
@@ -66,6 +67,30 @@ class ContinuousSensitivityFigureTests(unittest.TestCase):
             + origin["weighted_positive_percent"]
         )
         self.assertTrue(np.isclose(sign_total, 100.0))
+
+    def test_plot_clipping_preserves_values_and_counts_boundaries(self):
+        values = np.array([-4.0, -2.5, 0.0, 2.5, 3.0])
+        original = values.copy()
+
+        displayed, below, above = clip_values_for_display(
+            values,
+            (-2.5, 2.5),
+        )
+
+        np.testing.assert_array_equal(values, original)
+        np.testing.assert_allclose(displayed, [-2.5, -2.5, 0.0, 2.5, 2.5])
+        np.testing.assert_array_equal(
+            below,
+            [True, False, False, False, False],
+        )
+        np.testing.assert_array_equal(
+            above,
+            [False, False, False, False, True],
+        )
+
+    def test_plot_clipping_rejects_invalid_limits(self):
+        with self.assertRaisesRegex(ValueError, "finite and increasing"):
+            clip_values_for_display([0.0], (2.5, -2.5))
 
 
 if __name__ == "__main__":

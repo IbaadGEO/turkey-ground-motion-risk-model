@@ -1,5 +1,9 @@
 from pathlib import Path
 
+import matplotlib
+
+matplotlib.use("Agg")
+
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 from matplotlib.path import Path as MplPath
@@ -14,13 +18,30 @@ from vs30_sampling import sample_vs30_raster
 
 
 FULL_RASTER_FILE = Path("data/external/TRVs30GeoM_3Arcsec.tif")
+PRODUCTION_RASTER_FILE = Path("data/external/TRVs30GeoM_9Arcsec.tif")
 MODEL_RECEIVER_FILE = Path("data/turkey_50km_land_grid_vs30.csv")
 
 OUTPUT_FOLDER = Path("outputs_gwfm/vs30_raster_comparison")
-PATTERN_FIGURE_FILE = OUTPUT_FOLDER / "vs30_full_raster_vs_sampled_receivers.png"
-DIFFERENCE_FIGURE_FILE = OUTPUT_FOLDER / "vs30_3arcsec_minus_model_receivers.png"
-RECEIVER_COMPARISON_FILE = OUTPUT_FOLDER / "vs30_3arcsec_receiver_comparison.csv"
+PATTERN_FIGURE_FILE = (
+    OUTPUT_FOLDER / "vs30_full_raster_vs_sampled_receivers.png"
+)
+DIFFERENCE_FIGURE_FILE = (
+    OUTPUT_FOLDER / "vs30_3arcsec_minus_model_receivers.png"
+)
+RECEIVER_COMPARISON_FILE = (
+    OUTPUT_FOLDER / "vs30_3arcsec_receiver_comparison.csv"
+)
 SUMMARY_FILE = OUTPUT_FOLDER / "vs30_raster_comparison_summary.csv"
+VERIFIED_PATTERN_FIGURE_FILE = (
+    OUTPUT_FOLDER / "vs30_full_raster_vs_sampled_receivers_verified.png"
+)
+VERIFIED_PATTERN_PDF_FILE = (
+    OUTPUT_FOLDER / "vs30_full_raster_vs_sampled_receivers_verified.pdf"
+)
+FALLBACK_DIAGNOSTIC_FILE = (
+    OUTPUT_FOLDER / "vs30_receiver_fallback_diagnostic.csv"
+)
+FALLBACK_SUMMARY_FILE = OUTPUT_FOLDER / "vs30_receiver_fallback_summary.csv"
 
 INPUT_CRS = "EPSG:4326"
 MINIMUM_VS30_M_S = 150.0
@@ -79,12 +100,20 @@ def load_model_receivers():
     return receivers
 
 
-def sample_native_3arcsec_at_receivers(model_receivers):
-    locations = model_receivers[["location_id", "longitude", "latitude"]].copy()
+def sample_native_raster_at_receivers(
+    model_receivers,
+    raster_file,
+    raster_label,
+):
+    """Sample one native raster and retain direct-cell/fallback provenance."""
+
+    locations = model_receivers[
+        ["location_id", "longitude", "latitude"]
+    ].copy()
 
     sampled = sample_vs30_raster(
         locations,
-        FULL_RASTER_FILE,
+        raster_file,
         id_column="location_id",
         longitude_column="longitude",
         latitude_column="latitude",
@@ -96,27 +125,44 @@ def sample_native_3arcsec_at_receivers(model_receivers):
 
     unresolved = ~sampled["vs30_status"].isin(["direct", "nearest_valid"])
     if unresolved.any():
-        print("\nUnresolved 3-arcsec receiver samples:")
+        print(f"\nUnresolved {raster_label} receiver samples:")
         print(sampled.loc[unresolved].to_string(index=False))
         raise ValueError(
-            "Some 311 receiver locations do not have a usable 3-arcsec "
+            f"Some receiver locations do not have a usable {raster_label} "
             "Vs30 value within the existing 10 km fallback limit."
         )
 
+    prefix = f"vs30_{raster_label.replace('-', '')}"
     sampled = sampled.rename(
         columns={
-            "vs30_m_s": "vs30_3arcsec_m_s",
-            "vs30_status": "vs30_3arcsec_status",
-            "direct_status": "vs30_3arcsec_direct_status",
-            "raster_row": "vs30_3arcsec_raster_row",
-            "raster_column": "vs30_3arcsec_raster_column",
-            "fallback_distance_m": "vs30_3arcsec_fallback_distance_m",
-            "source_raster": "vs30_3arcsec_source_raster",
-            "source_raster_md5": "vs30_3arcsec_source_raster_md5",
+            "vs30_m_s": f"{prefix}_m_s",
+            "vs30_status": f"{prefix}_status",
+            "direct_status": f"{prefix}_direct_status",
+            "raster_row": f"{prefix}_raster_row",
+            "raster_column": f"{prefix}_raster_column",
+            "fallback_distance_m": f"{prefix}_fallback_distance_m",
+            "source_raster": f"{prefix}_source_raster",
+            "source_raster_md5": f"{prefix}_source_raster_md5",
         }
     )
 
     return sampled
+
+
+def sample_native_3arcsec_at_receivers(model_receivers):
+    return sample_native_raster_at_receivers(
+        model_receivers,
+        FULL_RASTER_FILE,
+        "3arcsec",
+    )
+
+
+def sample_native_9arcsec_at_receivers(model_receivers):
+    return sample_native_raster_at_receivers(
+        model_receivers,
+        PRODUCTION_RASTER_FILE,
+        "9arcsec",
+    )
 
 
 def build_receiver_comparison(model_receivers, sampled_3arcsec):
@@ -182,6 +228,192 @@ def build_receiver_comparison(model_receivers, sampled_3arcsec):
     )
 
     return comparison
+
+
+def build_fallback_diagnostic(
+    model_receivers,
+    sampled_3arcsec,
+    sampled_9arcsec,
+):
+    """Compare direct and fallback outcomes from both native rasters."""
+
+    model = model_receivers[
+        ["location_id", "longitude", "latitude", "vs30_m_s", "vs30_status"]
+    ].copy()
+    model = model.rename(
+        columns={
+            "vs30_m_s": "recorded_production_vs30_m_s",
+            "vs30_status": "recorded_production_status",
+        }
+    )
+
+    three_columns = [
+        "location_id",
+        "vs30_3arcsec_m_s",
+        "vs30_3arcsec_status",
+        "vs30_3arcsec_direct_status",
+        "vs30_3arcsec_fallback_distance_m",
+    ]
+    nine_columns = [
+        "location_id",
+        "vs30_9arcsec_m_s",
+        "vs30_9arcsec_status",
+        "vs30_9arcsec_direct_status",
+        "vs30_9arcsec_fallback_distance_m",
+    ]
+
+    diagnostic = model.merge(
+        sampled_3arcsec[three_columns],
+        on="location_id",
+        how="left",
+        validate="one_to_one",
+    ).merge(
+        sampled_9arcsec[nine_columns],
+        on="location_id",
+        how="left",
+        validate="one_to_one",
+    )
+
+    if len(diagnostic) != len(model_receivers):
+        raise ValueError("Raster fallback diagnostic lost receiver rows.")
+    if diagnostic["location_id"].duplicated().any():
+        raise ValueError("Raster fallback diagnostic contains duplicate IDs.")
+
+    recorded_status = diagnostic["recorded_production_status"].astype(str)
+    sampled_status = diagnostic["vs30_9arcsec_status"].astype(str)
+    if not recorded_status.equals(sampled_status):
+        mismatches = diagnostic.loc[
+            recorded_status != sampled_status,
+            "location_id",
+        ].tolist()
+        raise ValueError(
+            "Native 9-arcsec statuses do not match the production grid for "
+            f"receiver IDs: {mismatches}"
+        )
+
+    recorded_values = diagnostic[
+        "recorded_production_vs30_m_s"
+    ].to_numpy(float)
+    sampled_values = diagnostic["vs30_9arcsec_m_s"].to_numpy(float)
+    if not np.allclose(recorded_values, sampled_values, rtol=0.0, atol=1e-6):
+        mismatches = diagnostic.loc[
+            ~np.isclose(recorded_values, sampled_values, rtol=0.0, atol=1e-6),
+            "location_id",
+        ].tolist()
+        raise ValueError(
+            "Native 9-arcsec values do not match the production grid for "
+            f"receiver IDs: {mismatches}"
+        )
+
+    diagnostic["direct_3arcsec"] = (
+        diagnostic["vs30_3arcsec_status"] == "direct"
+    )
+    diagnostic["fallback_3arcsec"] = (
+        diagnostic["vs30_3arcsec_status"] == "nearest_valid"
+    )
+    diagnostic["direct_9arcsec"] = (
+        diagnostic["vs30_9arcsec_status"] == "direct"
+    )
+    diagnostic["fallback_9arcsec"] = (
+        diagnostic["vs30_9arcsec_status"] == "nearest_valid"
+    )
+
+    fallback_three = diagnostic["fallback_3arcsec"]
+    fallback_nine = diagnostic["fallback_9arcsec"]
+    diagnostic["fallback_category"] = np.select(
+        [
+            fallback_three & fallback_nine,
+            fallback_three & ~fallback_nine,
+            ~fallback_three & fallback_nine,
+        ],
+        ["both", "3arcsec_only", "9arcsec_only"],
+        default="neither",
+    )
+
+    diagnostic = diagnostic.rename(
+        columns={
+            "location_id": "receiver_id",
+            "vs30_3arcsec_m_s": "vs30_3arcsec",
+            "vs30_9arcsec_m_s": "vs30_9arcsec",
+            "vs30_3arcsec_direct_status": "direct_cell_status_3arcsec",
+            "vs30_9arcsec_direct_status": "direct_cell_status_9arcsec",
+            "vs30_3arcsec_fallback_distance_m": (
+                "fallback_distance_3arcsec_m"
+            ),
+            "vs30_9arcsec_fallback_distance_m": (
+                "fallback_distance_9arcsec_m"
+            ),
+        }
+    )
+
+    return diagnostic[
+        [
+            "receiver_id",
+            "latitude",
+            "longitude",
+            "vs30_3arcsec",
+            "direct_cell_status_3arcsec",
+            "direct_3arcsec",
+            "fallback_3arcsec",
+            "fallback_distance_3arcsec_m",
+            "vs30_9arcsec",
+            "direct_cell_status_9arcsec",
+            "direct_9arcsec",
+            "fallback_9arcsec",
+            "fallback_distance_9arcsec_m",
+            "fallback_category",
+        ]
+    ]
+
+
+def build_fallback_summary(diagnostic):
+    receiver_count = len(diagnostic)
+    if receiver_count == 0:
+        raise ValueError("Fallback diagnostic must contain receiver rows.")
+
+    direct_three = int(diagnostic["direct_3arcsec"].sum())
+    fallback_three = int(diagnostic["fallback_3arcsec"].sum())
+    direct_nine = int(diagnostic["direct_9arcsec"].sum())
+    fallback_nine = int(diagnostic["fallback_9arcsec"].sum())
+
+    if direct_three + fallback_three != receiver_count:
+        raise ValueError(
+            "3-arcsec direct/fallback counts do not cover all receivers."
+        )
+    if direct_nine + fallback_nine != receiver_count:
+        raise ValueError(
+            "9-arcsec direct/fallback counts do not cover all receivers."
+        )
+
+    category_counts = diagnostic["fallback_category"].value_counts()
+    return pd.DataFrame(
+        [
+            {
+                "receiver_count": receiver_count,
+                "direct_3arcsec_count": direct_three,
+                "fallback_3arcsec_count": fallback_three,
+                "direct_3arcsec_percent": (
+                    100.0 * direct_three / receiver_count
+                ),
+                "fallback_3arcsec_percent": (
+                    100.0 * fallback_three / receiver_count
+                ),
+                "direct_9arcsec_count": direct_nine,
+                "fallback_9arcsec_count": fallback_nine,
+                "direct_9arcsec_percent": 100.0 * direct_nine / receiver_count,
+                "fallback_9arcsec_percent": (
+                    100.0 * fallback_nine / receiver_count
+                ),
+                "fallback_in_both_count": int(category_counts.get("both", 0)),
+                "fallback_only_3arcsec_count": int(
+                    category_counts.get("3arcsec_only", 0)
+                ),
+                "fallback_only_9arcsec_count": int(
+                    category_counts.get("9arcsec_only", 0)
+                ),
+            }
+        ]
+    )
 
 
 def turkey_plot_bounds():
@@ -297,7 +529,13 @@ def read_display_raster():
     return destination, bounds, metadata
 
 
-def plot_pattern_comparison(display_raster, bounds, model_receivers):
+def plot_pattern_comparison(
+    display_raster,
+    bounds,
+    model_receivers,
+    fallback_diagnostic=None,
+    output_files=None,
+):
     OUTPUT_FOLDER.mkdir(parents=True, exist_ok=True)
 
     left, bottom, right, top = bounds
@@ -343,7 +581,20 @@ def plot_pattern_comparison(display_raster, bounds, model_receivers):
     )
     plot_turkey_border(axes[1])
 
-    fallback = model_receivers["vs30_status"].astype(str) == "nearest_valid"
+    if fallback_diagnostic is None:
+        fallback = (
+            model_receivers["vs30_status"].astype(str) == "nearest_valid"
+        )
+    else:
+        fallback_ids = set(
+            fallback_diagnostic.loc[
+                fallback_diagnostic["fallback_9arcsec"],
+                "receiver_id",
+            ]
+        )
+        fallback = model_receivers["location_id"].isin(fallback_ids)
+    fallback_count = int(fallback.sum())
+    fallback_percent = 100.0 * fallback_count / len(model_receivers)
     axes[1].scatter(
         model_receivers.loc[fallback, "longitude"],
         model_receivers.loc[fallback, "latitude"],
@@ -351,10 +602,27 @@ def plot_pattern_comparison(display_raster, bounds, model_receivers):
         edgecolors="red",
         s=95,
         linewidth=1.2,
-        label="Nearest-valid model Vs30",
+        label="Nearest-valid fallback receiver",
         zorder=4,
     )
     axes[1].legend(loc="upper right")
+    axes[1].text(
+        0.025,
+        0.035,
+        f"Nearest-valid fallback: {fallback_count} / "
+        f"{len(model_receivers)} receivers ({fallback_percent:.1f}%)",
+        transform=axes[1].transAxes,
+        ha="left",
+        va="bottom",
+        fontsize=9,
+        bbox={
+            "boxstyle": "round,pad=0.35",
+            "fc": "white",
+            "ec": "0.75",
+            "alpha": 0.94,
+        },
+        zorder=5,
+    )
     axes[1].set_title(
         "311 Vs30 receiver values used by the model\n"
         "(current 9-arcsec sampled source)"
@@ -377,10 +645,14 @@ def plot_pattern_comparison(display_raster, bounds, model_receivers):
     colourbar.set_label("Vs30 (m/s)")
 
     fig.suptitle(
-        "Turkey Vs30: high-resolution raster pattern versus model receiver sampling",
+        "Turkey Vs30: high-resolution raster pattern versus "
+        "model receiver sampling",
         fontsize=15,
     )
-    fig.savefig(PATTERN_FIGURE_FILE, dpi=200, bbox_inches="tight")
+    if output_files is None:
+        output_files = (PATTERN_FIGURE_FILE,)
+    for output_file in output_files:
+        fig.savefig(output_file, dpi=300, bbox_inches="tight")
     plt.close(fig)
 
 
@@ -499,6 +771,10 @@ def main():
         raise FileNotFoundError(
             f"Missing full raster: {FULL_RASTER_FILE}"
         )
+    if not PRODUCTION_RASTER_FILE.exists():
+        raise FileNotFoundError(
+            f"Missing production raster: {PRODUCTION_RASTER_FILE}"
+        )
     if not MODEL_RECEIVER_FILE.exists():
         raise FileNotFoundError(
             f"Missing model receiver file: {MODEL_RECEIVER_FILE}"
@@ -510,7 +786,14 @@ def main():
     model_receivers = load_model_receivers()
 
     print(
-        "Sampling the native 3-arcsec raster at all 311 receiver locations..."
+        "Resampling the native 9-arcsec production raster for "
+        "verification..."
+    )
+    sampled_9arcsec = sample_native_9arcsec_at_receivers(model_receivers)
+
+    print(
+        "Sampling the native 3-arcsec raster at all 311 receiver "
+        "locations..."
     )
     print(
         "Note: the existing sampler calculates an MD5 checksum of the "
@@ -518,40 +801,61 @@ def main():
     )
     sampled_3arcsec = sample_native_3arcsec_at_receivers(model_receivers)
 
+    diagnostic = build_fallback_diagnostic(
+        model_receivers,
+        sampled_3arcsec,
+        sampled_9arcsec,
+    )
+    diagnostic.to_csv(FALLBACK_DIAGNOSTIC_FILE, index=False)
+    fallback_summary = build_fallback_summary(diagnostic)
+    fallback_summary.to_csv(FALLBACK_SUMMARY_FILE, index=False)
+
     comparison = build_receiver_comparison(
         model_receivers,
         sampled_3arcsec,
     )
-    comparison.to_csv(RECEIVER_COMPARISON_FILE, index=False)
 
     print("Reading the full 3-arcsec raster for the presentation figure...")
-    display_raster, bounds, raster_metadata = read_display_raster()
+    display_raster, bounds, _ = read_display_raster()
 
     plot_pattern_comparison(
         display_raster,
         bounds,
         model_receivers,
+        fallback_diagnostic=diagnostic,
+        output_files=(
+            VERIFIED_PATTERN_FIGURE_FILE,
+            VERIFIED_PATTERN_PDF_FILE,
+        ),
     )
-    plot_receiver_difference(comparison)
 
-    summary = build_summary(comparison, raster_metadata)
-    summary.to_csv(SUMMARY_FILE, index=False)
+    counts = fallback_summary.iloc[0]
 
     print("\nVs30 full-raster comparison complete.")
     print("Full raster source:", FULL_RASTER_FILE)
     print("Model receiver source file:", MODEL_RECEIVER_FILE)
     print("Receiver rows:", len(comparison))
-    print("Current model status counts:")
     print(
-        comparison["vs30_model_9arcsec_status"]
-        .value_counts()
-        .to_string()
+        "9 arcsec: direct",
+        int(counts["direct_9arcsec_count"]),
+        f"({counts['direct_9arcsec_percent']:.2f}%); fallback",
+        int(counts["fallback_9arcsec_count"]),
+        f"({counts['fallback_9arcsec_percent']:.2f}%).",
     )
-    print("3-arcsec sample status counts:")
     print(
-        comparison["vs30_3arcsec_status"]
-        .value_counts()
-        .to_string()
+        "3 arcsec: direct",
+        int(counts["direct_3arcsec_count"]),
+        f"({counts['direct_3arcsec_percent']:.2f}%); fallback",
+        int(counts["fallback_3arcsec_count"]),
+        f"({counts['fallback_3arcsec_percent']:.2f}%).",
+    )
+    print(
+        "Fallback overlap: both",
+        int(counts["fallback_in_both_count"]),
+        "; 3-arcsec only",
+        int(counts["fallback_only_3arcsec_count"]),
+        "; 9-arcsec only",
+        int(counts["fallback_only_9arcsec_count"]),
     )
     print(
         "Current model Vs30 range:",
@@ -611,13 +915,13 @@ def main():
         ),
     )
     print("\nSaved:")
-    print(PATTERN_FIGURE_FILE)
-    print(DIFFERENCE_FIGURE_FILE)
-    print(RECEIVER_COMPARISON_FILE)
-    print(SUMMARY_FILE)
+    print(VERIFIED_PATTERN_FIGURE_FILE)
+    print(VERIFIED_PATTERN_PDF_FILE)
+    print(FALLBACK_DIAGNOSTIC_FILE)
+    print(FALLBACK_SUMMARY_FILE)
     print(
-        "\nImportant: this does not replace the model's existing 9-arcsec "
-        "Vs30 values. It compares them with the 3-arcsec raster."
+        "\nNative 3- and 9-arcsec rasters were sampled directly. The "
+        "3-arcsec raster was downsampled only for the display panel."
     )
 
 

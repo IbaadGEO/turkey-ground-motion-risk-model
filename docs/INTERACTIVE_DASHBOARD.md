@@ -1,165 +1,224 @@
 # Interactive dashboard
 
-The repository includes a static GitHub Pages dashboard under `docs/`. Version
-2 keeps the existing HTML, CSS, vanilla JavaScript, Leaflet, Papa Parse and
-Plotly stack. It visualises validated Python outputs and does not reproduce the
-GMPE or vulnerability calculations in JavaScript.
+The static GitHub Pages dashboard lives under `docs/`. It keeps the existing
+HTML, CSS, vanilla JavaScript, Leaflet, Papa Parse and Plotly stack. The page
+visualises validated Python outputs and does not reproduce the GMPE or
+vulnerability calculations in JavaScript.
 
-## Version 2 overview
+## Primary model view
 
-The primary view is organised around three choices:
+The primary view remains organised around three choices:
 
 - earthquake;
-- depth source: gWFM, ISC-EHB or gCMT;
+- depth source: gWFM, ISC-EHB or gCMT; and
 - map variable: Vs30, PGA or structural loss ratio.
 
-The selected scenario shows four headline values from the tracked compact
-summary:
-
-- maximum PGA: highest modelled value among 311 receivers;
-- mean PGA: arithmetic mean across all 311 receivers;
-- maximum structural loss ratio: highest modelled value among 311 receivers;
-- mean structural loss ratio: arithmetic mean across all 311 receivers.
-
-Coordinates, rake, source availability, minimum distances, the 30 km depth
-check, medians and non-zero loss counts remain available under **More details**.
-The comparison area uses one depth chart, solid Maximum bars and orange diamond
-Mean markers for PGA and structural loss, without filling missing catalogue
-depths or changing the underlying values.
-
-## Receiver map layers
+The selected scenario shows maximum and arithmetic mean PGA and structural
+loss ratio across the 311 receivers. Coordinates, rake, source availability,
+minimum distances, the 30 km depth check, medians and non-zero loss counts are
+under **More details**. The comparison charts preserve missing source depths
+and use the tracked compact summary without changing its values.
 
 ### Vs30
 
 The Vs30 layer uses `data/turkey_50km_land_grid_vs30.csv`. It preserves all 311
-production receiver values, direct/nearest-valid sampling status and fallback
-distance. Its legend uses the fixed site bins already used by the dashboard.
+production values, direct/nearest-valid sampling status and fallback distance.
 
 ### PGA
 
-The PGA layer reads `median_pga_g` from the selected event/depth JSON file. All
-311 values are strictly positive. Colour uses an event-specific continuous
-Viridis scale in log(PGA), with the minimum, geometric midpoint and maximum
-shown explicitly in g. The logarithmic transform makes the broad positive PGA
-range legible; the legend states the transform so it is not mistaken for a
-linear scale.
+The PGA layer reads `median_pga_g` from the selected event/depth JSON. All 311
+values are strictly positive. Colour uses an event-specific continuous Viridis
+scale in log(PGA), with minimum, geometric midpoint and maximum shown in g.
 
 ### Structural loss ratio
 
 The structural-loss layer reads `structural_loss_ratio_mean` without changing
 the stored ratio. Ratios are multiplied by 100 only for display. Exact zero is
-grey; positive values use an event-specific linear sequential scale from zero
-to the selected scenario maximum. The legend and popups use percent units.
+grey and positive values use an event-specific linear scale.
 
-Structural loss ratio is conditional on the modelled PGA and current GEM
-structural vulnerability function. It is not an insured, monetary, contents or
+Structural loss is conditional on the modelled PGA and the current GEM
+residential structural function. It is not an insured, monetary, contents or
 complete portfolio loss estimate.
 
-## Dashboard data export
+## Separate exposure control
 
-Run the exporter from the repository root after generating the validated
-complete table:
+The **Exposure overlay** control is independent of the primary map variable:
+
+- **None** is the default and loads no exposure data;
+- **GEM province exposure** shows aggregate Adm1 building stock; and
+- **Elazığ buildings** shows a descriptive OpenStreetMap footprint pilot.
+
+Selecting or clearing an exposure never changes Vs30, PGA, structural loss,
+the chosen event or the chosen depth source. Exposure failures clear only the
+exposure layer; the receiver model remains usable.
+
+### GEM province exposure
+
+The GEM layer uses the open v2026.0.0 Türkiye summaries for Adm0, Adm1 and
+taxonomy. The restricted/full 1 km model is not used. Province colour can show
+total, residential, commercial or industrial `BUILDINGS`. The legend is
+explicitly labelled **GEM exposure, Adm1 aggregate**.
+
+Province popups show province, total/residential/commercial/industrial
+buildings and residential occupants. Optional details show building
+replacement cost and built-up area. Building replacement cost is not called
+insured loss, and the polygons do not contain individual building locations.
+
+The lower **Building stock** panel shows the five largest
+`MACRO_TAXONOMY` groups and the five largest exact
+`TAXONOMY`/`OCCUPANCY` records by `BUILDINGS`. Descriptions are copied from the
+GEM Türkiye README. The complete 1,095-record settlement-aggregated taxonomy
+summary remains available as JSON. No receiver structural loss is recalculated
+for these building classes.
+
+The pinned GEM source summaries are not numerically identical at the
+single-building level: Adm0 totals 10,103,556 buildings, Adm1 totals 10,103,560
+and the taxonomy summary totals 10,103,501. The dashboard preserves the
+published source values and does not force an artificial reconciliation.
+
+The Elazığ context card uses the exact province record:
+
+```text
+ID_1 = TR-23
+NAME_1 = Elazığ
+RES = 61,694 buildings
+COM = 5,600 buildings
+IND = 1,569 buildings
+```
+
+These are province totals and must not be described as Elazığ city counts.
+
+### Elazığ OpenStreetMap pilot
+
+The building pilot contains 1,583 closed OSM ways carrying a `building` tag.
+It was extracted on 2026-09-03 with a one-time Overpass request using this
+fixed central-Elazığ query bounding box:
+
+```text
+south = 38.66
+west  = 39.18
+north = 38.69
+east  = 39.23
+```
+
+This box is not an official city or administrative boundary. The Overpass
+bounding-box filter selects ways that intersect the query window, so a returned
+building polygon may extend slightly beyond those coordinates. Each feature
+retains its OSM way ID, original `building` tag, name and levels when supplied,
+all source OSM tags, source, licence and retrieval date. Missing attributes are
+not invented.
+
+The live page never queries Overpass. It uses precomputed rendering levels:
+
+- zoom 9 or lower: 5 coarse cluster/count symbols;
+- zoom 10-13: 30 local cluster/count symbols; and
+- zoom 14 or higher: individual footprint polygons.
+
+Cluster counts reproduce the 1,583-feature total at both resolutions. The
+881 KB footprint GeoJSON is fetched only after the Elazığ mode is selected and
+the map reaches high zoom.
+
+OSM footprints are descriptive geometry, not a complete structural inventory.
+The required attribution is visible in both the map legend and information
+panel: `© OpenStreetMap contributors`, ODbL 1.0. OSM tags have not been mapped
+to GEM taxonomy. Every popup states `Vulnerability class: Not assigned`; no
+building PGA or building structural loss is shown.
+
+## Static exposure files and preprocessing
+
+`prepare_gem_exposure_dashboard.py` reads the three open GEM summary CSVs plus
+the GeoBoundaries input from ignored `data/external/` paths and writes:
+
+```text
+docs/data/exposure/gem_turkiye_adm1.json
+docs/data/exposure/gem_turkiye_taxonomy.json
+docs/data/exposure/gem_exposure_metadata.json
+docs/data/exposure/turkiye_adm1.geojson
+```
+
+Run it from the repository root after placing the source files in the paths
+documented in `docs/data/exposure/README.md`:
+
+```powershell
+python prepare_gem_exposure_dashboard.py --retrieved-on 2026-09-03
+```
+
+`prepare_elazig_osm_dashboard.py` downloads only when `--download` is supplied.
+The raw Overpass response is stored under ignored `data/external/osm/`; the
+derived browser files are:
+
+```text
+docs/data/exposure/elazig_buildings.geojson
+docs/data/exposure/elazig_building_clusters.json
+docs/data/exposure/elazig_osm_metadata.json
+```
+
+One-time download and later offline regeneration:
+
+```powershell
+python prepare_elazig_osm_dashboard.py --download --retrieved-on 2026-09-03
+python prepare_elazig_osm_dashboard.py --retrieved-on 2026-09-03
+```
+
+The full provenance, pinned URLs, licences, retrieval date, join method and
+limitations are in `docs/data/exposure/README.md` and the generated metadata.
+
+## Receiver data export
+
+Run the existing exporter after generating the validated complete model table:
 
 ```powershell
 python build_dashboard_data.py
 ```
 
-`build_dashboard_data.py` selects and reformats existing values from:
+It selects and reformats existing values from the ignored complete table and
+the tracked compact event/depth summary. It does not calculate PGA or
+structural loss. It checks exactly 117 events, 321 valid depth scenarios, 311
+receivers per scenario, finite values, scientific ranges and reproduction of
+receiver-level means and maxima against the compact summary.
 
-- `outputs_gwfm/complete_pga_structural_loss_table.csv`; and
-- `outputs_gwfm/complete_output/earthquake_depth_pga_loss_summary.csv`.
-
-It does not calculate PGA or structural loss. Before writing output, it checks:
-
-- exactly 117 unique events;
-- 117 gWFM, 110 ISC-EHB and 94 Global CMT scenarios (321 total);
-- exactly 311 unique receivers per scenario;
-- a finite summary receiver count of 311 for every scenario;
-- finite summary mean and maximum fields;
-- finite coordinates and Vs30;
-- strictly positive PGA;
-- structural loss ratios between zero and one;
-- exact correspondence between receiver and summary event/source keys;
-- receiver-level mean and maximum PGA against the compact summary; and
-- receiver-level mean and maximum loss ratio against the compact summary.
-
-The browser files are written as:
-
-```text
-docs/data/dashboard_manifest.json
-docs/data/events/<event_id>/<depth_source>.json
-docs/data/vulnerability_functions.json
-```
-
-When `--output-directory` is supplied, this same tree is written entirely
-beneath that directory. The production default remains `docs/data/`, and its
-manifest paths remain browser-relative paths such as
-`data/events/1421/waveform.json` so they resolve from `docs/index.html`.
-
-Each scenario file stores the field names once and then 311 compact receiver
-arrays. Event and source metadata are not repeated 311 times. The current
-export contains 321 files totaling approximately 10.2 MB; individual scenario
-files are approximately 31–33 KB. Only the selected scenario is requested.
-
-Initial scientific data are approximately 194 KB before transfer compression:
-the Turkey boundary, production receiver table, 321-row event summary and
-dashboard manifest. The ignored 99,831-row complete table is never downloaded
-by the browser.
+The 321 compact scenario files under `docs/data/events/` total approximately
+10.2 MB and are loaded one at a time. The ignored 99,831-row complete table is
+never downloaded by the browser.
 
 ## Loading, caching and errors
 
-PGA and loss for one event/source share the same scenario JSON. The dashboard
-stores successfully validated scenarios in a JavaScript `Map`, so switching
-PGA to loss or returning to an earlier scenario does not fetch that file again.
-A small status line reports loading, uncached timing, cache reuse or an error.
+Validated receiver scenarios and exposure datasets have separate JavaScript
+caches. On initial load the dashboard requests only the Turkey boundary,
+production receiver table, compact event summary and dashboard manifest.
 
-Before drawing a scenario, the browser checks the event/source identity, field
-schema, receiver count, unique IDs, finite values and scientific ranges. A
-missing source, missing file, network failure or malformed JSON clears the
-previous thematic markers instead of leaving stale values. The source-independent
-Vs30 layer remains available.
+GEM JSON and Adm1 boundaries load only when GEM exposure is selected. The
+Elazığ cluster summary, metadata and GEM context load only when the Elazığ
+overlay is selected. Individual OSM polygons load only at zoom 14 or higher.
+
+Malformed or unavailable exposure data show an exposure-specific error and do
+not call the initial receiver-data failure path. Scenario errors likewise do
+not leave stale receiver markers.
 
 ## Shareable state
 
-The URL stores all three primary choices:
+The URL stores event, source, primary layer and exposure mode:
 
 ```text
-?event=1421&source=waveform&layer=pga
+?event=1421&source=waveform&layer=pga&exposure=none
 ```
 
-Valid layer values are `vs30`, `pga` and `loss`. Invalid layer values fall back
-to the documented default, PGA. A shared non-common event automatically turns
-off the three-source-only filter so the requested event remains visible.
+Valid exposure values are `none`, `gem` and `elazig`. Missing or invalid values
+fall back to `none`, so older Dashboard Version 2 URLs continue to work. Valid
+primary layers remain `vs30`, `pga` and `loss`; their default remains PGA.
 
-## Vulnerability and exposure scope
+## Scientific separation
 
-The open GEM Global Seismic Vulnerability Model v2026.0.0 structural XML is
-stored in `data/gem_vulnerability_v2026/` under CC BY-NC-SA 4.0. The exporter
-records the 521 source function IDs, distributions and IMTs in
-`docs/data/vulnerability_functions.json`. The XML does not provide explicit
-human-readable descriptions for those coded taxonomies, so none are invented.
+The dashboard deliberately keeps three concepts separate:
 
-Current production structural loss uses only:
+1. the validated 311-receiver PGA and structural-loss model;
+2. aggregate GEM province exposure; and
+3. mapped OSM footprints in the Elazığ pilot.
 
-```text
-MUR+CLBRS/LWAL/CDN+ERN/H:1/RES
-```
-
-The dashboard does not let users choose another function because no validated
-alternative receiver-level calculations exist.
-
-No verified building-footprint or city-exposure dataset exists in the
-repository. Version 2 therefore does not show fabricated building clusters or
-assign open building tags to GEM taxonomies. The reproducible input contract
-for a future licensed pilot is documented in `docs/data/exposure/README.md`.
-Building/city risk remains a separate exposure-model extension, not completed
-production science.
-
-The preferred scientifically aligned source to investigate for that future
-extension is the GEM Global Exposure Model v2026.0.0. It has not been
-downloaded or integrated here. OpenStreetMap building footprints could provide
-descriptive exposure geometry only unless a defensible building-to-GEM
-taxonomy mapping is developed.
+Current receiver structural loss uses only GEM v2026.0.0 function
+`MUR+CLBRS/LWAL/CDN+ERN/H:1/RES`. GEM Adm1 exposure does not change that
+function, and OSM footprints receive no vulnerability function. No
+building-level structural-loss calculation has been validated.
 
 ## Local preview
 
@@ -170,24 +229,16 @@ cd docs
 python -m http.server 8000
 ```
 
-Then open:
-
-```text
-http://localhost:8000
-```
-
-An internet connection is required for OpenStreetMap tiles, the pinned browser
-libraries and the published boundary/summary inputs. Scenario JSON files are
-served locally from `docs/data/` during preview.
+Then open `http://localhost:8000`. An internet connection is required for map
+tiles and the pinned browser libraries. Repository JSON is served locally.
 
 ## GitHub Pages
 
-The dashboard remains a static site compatible with deployment from `main` and
-`/docs`:
+The dashboard remains compatible with GitHub Pages from `main` and `/docs`:
 
 ```text
 https://ibaadgeo.github.io/turkey-ground-motion-risk-model/
 ```
 
-Versioned query strings on `dashboard.css` and `dashboard.js` prevent an older
-interface from remaining in browser caches after publication.
+Versioned query strings on `dashboard.css` and `dashboard.js` prevent stale
+interface assets after publication.

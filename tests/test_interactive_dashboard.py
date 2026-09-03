@@ -98,8 +98,8 @@ class InteractiveDashboardTests(unittest.TestCase):
         self.assertIn('name="map-variable" value="vs30"', html)
         self.assertIn('name="map-variable" value="pga" checked', html)
         self.assertIn('name="map-variable" value="loss"', html)
-        self.assertIn("dashboard.css?v=20260902-1", html)
-        self.assertIn("dashboard.js?v=20260902-1", html)
+        self.assertIn("dashboard.css?v=20260903-2", html)
+        self.assertIn("dashboard.js?v=20260903-2", html)
 
     def test_dashboard_uses_validated_headline_metrics(self):
         javascript = (DOCS / "dashboard.js").read_text(encoding="utf-8-sig")
@@ -156,8 +156,9 @@ class InteractiveDashboardTests(unittest.TestCase):
         html = (DOCS / "index.html").read_text(encoding="utf-8-sig")
         self.assertIn("MUR+CLBRS/LWAL/CDN+ERN/H:1/RES", html)
         self.assertIn("not monetary or insured-loss estimates", html)
-        self.assertIn("Vulnerability class not assigned to buildings", html)
-        self.assertIn("No verified building or city-exposure dataset", html)
+        self.assertIn("Individual-building vulnerability not assigned", html)
+        self.assertIn("GEM shows province-level aggregate building stock", html)
+        self.assertIn("Neither exposure layer changes the 311-receiver model output", html)
 
 
 if __name__ == "__main__":

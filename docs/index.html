@@ -18,7 +18,7 @@
     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
     crossorigin=""
   >
-  <link rel="stylesheet" href="./dashboard.css?v=20260902-1">
+  <link rel="stylesheet" href="./dashboard.css?v=20260903-2">
 </head>
 <body>
   <header class="site-header">
@@ -86,6 +86,42 @@
           </div>
         </fieldset>
 
+        <fieldset class="layer-fieldset exposure-fieldset">
+          <legend>Exposure overlay</legend>
+          <div class="exposure-control">
+            <label>
+              <input type="radio" name="exposure" value="none" checked>
+              <span>None</span>
+            </label>
+            <label>
+              <input type="radio" name="exposure" value="gem">
+              <span>GEM province exposure</span>
+            </label>
+            <label>
+              <input type="radio" name="exposure" value="elazig">
+              <span>Elazığ buildings</span>
+            </label>
+          </div>
+        </fieldset>
+
+        <div id="exposure-metric-control" class="exposure-metric-control" hidden>
+          <label for="exposure-metric">GEM exposure metric</label>
+          <select id="exposure-metric">
+            <option value="TOTAL">Total buildings</option>
+            <option value="RES">Residential buildings</option>
+            <option value="COM">Commercial buildings</option>
+            <option value="IND">Industrial buildings</option>
+          </select>
+        </div>
+
+        <p id="exposure-status" class="exposure-status" role="status">
+          Exposure overlay off
+        </p>
+
+        <button id="fit-elazig" class="secondary-button exposure-button" type="button" hidden>
+          Zoom to Elazığ pilot
+        </button>
+
         <label class="checkbox-row map-toggle">
           <input id="show-events" type="checkbox">
           <span>Show all earthquake locations</span>
@@ -115,6 +151,7 @@
           <h2 id="map-heading" class="visually-hidden">Receiver map</h2>
           <div id="map" aria-label="Interactive receiver map of Turkey"></div>
           <div id="map-legend" class="map-legend" aria-live="polite"></div>
+          <div id="exposure-legend" class="exposure-legend" aria-live="polite" hidden></div>
         </section>
 
         <aside class="event-card" aria-live="polite">
@@ -186,6 +223,55 @@
         </aside>
       </div>
 
+      <section id="exposure-panel" class="exposure-card" aria-live="polite" hidden>
+        <div class="section-heading exposure-heading">
+          <div>
+            <p class="eyebrow">Separate descriptive dataset</p>
+            <h2 id="exposure-panel-title">Exposure context</h2>
+          </div>
+          <p id="exposure-panel-summary"></p>
+        </div>
+
+        <div class="exposure-grid">
+          <article id="elazig-context-card" class="exposure-context-card">
+            <h3>Elazığ province exposure context</h3>
+            <p class="context-kicker">GEM Adm1 aggregate · TR-23</p>
+            <dl class="exposure-counts">
+              <div><dt>Residential</dt><dd id="elazig-res">&ndash;</dd></div>
+              <div><dt>Commercial</dt><dd id="elazig-com">&ndash;</dd></div>
+              <div><dt>Industrial</dt><dd id="elazig-ind">&ndash;</dd></div>
+            </dl>
+            <p class="panel-note">These values describe Elazığ province, not only Elazığ city.</p>
+          </article>
+
+          <article id="building-stock-card" class="building-stock-card">
+            <h3>Türkiye building stock</h3>
+            <p id="building-stock-intro"></p>
+            <div id="macro-stock-list" class="stock-list"></div>
+            <details id="taxonomy-details" class="more-details">
+              <summary>More details</summary>
+              <div id="taxonomy-top-list" class="taxonomy-top-list"></div>
+              <a href="./data/exposure/gem_turkiye_taxonomy.json">Inspect the complete GEM taxonomy summary</a>
+            </details>
+          </article>
+
+          <article id="osm-pilot-card" class="osm-pilot-card" hidden>
+            <h3>Mapped building footprints</h3>
+            <p id="osm-pilot-summary"></p>
+            <dl class="exposure-counts">
+              <div><dt>Footprints</dt><dd id="osm-building-count">&ndash;</dd></div>
+              <div><dt>Current rendering</dt><dd id="osm-render-mode">&ndash;</dd></div>
+              <div><dt>Vulnerability class</dt><dd>Not assigned</dd></div>
+            </dl>
+            <p class="osm-attribution">
+              Building data
+              <a href="https://www.openstreetmap.org/copyright">© OpenStreetMap contributors</a>
+              · ODbL 1.0
+            </p>
+          </article>
+        </div>
+      </section>
+
       <section class="chart-section">
         <div class="section-heading">
           <div>
@@ -240,13 +326,13 @@
             <a href="./data/vulnerability_functions.json">Inspect exported GEM metadata</a>
           </div>
           <div>
-            <h3>Exposure extension</h3>
+            <h3>Exposure context</h3>
             <p>
-              No verified building or city-exposure dataset is assigned here.
-              Building footprints, original open-data tags and building-specific
-              vulnerability require a separate documented exposure workflow.
+              GEM shows province-level aggregate building stock. OpenStreetMap
+              shows mapped footprints intersecting a fixed Elazığ urban pilot query box.
+              Neither exposure layer changes the 311-receiver model output.
             </p>
-            <span class="status-pill">Vulnerability class not assigned to buildings</span>
+            <span class="status-pill">Individual-building vulnerability not assigned</span>
           </div>
         </div>
       </section>
@@ -255,7 +341,7 @@
 
   <footer>
     <span>Turkey Ground-Motion Model</span>
-    <span>Interactive dashboard v2</span>
+    <span>Interactive dashboard v2 · exposure pilot</span>
   </footer>
 
   <script
@@ -265,6 +351,6 @@
   ></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
-  <script src="./dashboard.js?v=20260902-1"></script>
+  <script src="./dashboard.js?v=20260903-2"></script>
 </body>
 </html>

@@ -266,6 +266,78 @@ a:focus-visible {
   outline-offset: 2px;
 }
 
+.exposure-fieldset {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--line);
+}
+
+.exposure-control {
+  display: grid;
+  gap: 0.34rem;
+}
+
+.exposure-control label {
+  position: relative;
+  margin: 0;
+  cursor: pointer;
+}
+
+.exposure-control input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.exposure-control span {
+  display: block;
+  padding: 0.48rem 0.58rem;
+  border: 1px solid #d3dbe0;
+  border-radius: 0.48rem;
+  background: #f8fafb;
+  color: #44545f;
+  font-size: 0.76rem;
+  font-weight: 740;
+}
+
+.exposure-control input:checked + span {
+  border-color: #7c3aed;
+  background: #f1eafe;
+  color: #4c1d95;
+}
+
+.exposure-control input:focus-visible + span {
+  outline: 3px solid rgba(124, 58, 237, 0.2);
+  outline-offset: 2px;
+}
+
+.exposure-metric-control {
+  margin-top: 0.7rem;
+}
+
+.exposure-status {
+  min-height: 1.1rem;
+  margin: 0.55rem 0 0;
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.4;
+}
+
+.exposure-status.loading {
+  color: #6d28d9;
+}
+
+.exposure-status.error {
+  color: var(--danger);
+}
+
+.exposure-button {
+  border-color: #c4b5fd;
+  background: #f5f3ff;
+  color: #4c1d95;
+}
+
 .map-toggle {
   margin-top: 0.9rem;
 }
@@ -353,7 +425,8 @@ a:focus-visible {
 .map-card,
 .event-card,
 .chart-section,
-.science-card {
+.science-card,
+.exposure-card {
   min-width: 0;
   border: 1px solid var(--line);
   border-radius: 0.85rem;
@@ -386,6 +459,39 @@ a:focus-visible {
   box-shadow: 0 5px 18px rgba(0, 0, 0, 0.14);
   color: #34434f;
   font-size: 0.7rem;
+}
+
+.exposure-legend {
+  position: absolute;
+  z-index: 800;
+  left: 0.75rem;
+  bottom: 0.75rem;
+  width: min(238px, calc(100% - 1.5rem));
+  padding: 0.68rem 0.72rem;
+  border: 1px solid rgba(76, 29, 149, 0.2);
+  border-radius: 0.52rem;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 5px 18px rgba(0, 0, 0, 0.14);
+  color: #34434f;
+  font-size: 0.7rem;
+}
+
+.exposure-legend strong,
+.exposure-legend > span {
+  display: block;
+}
+
+.exposure-legend strong {
+  margin-bottom: 0.2rem;
+  color: #4c1d95;
+  font-size: 0.76rem;
+}
+
+.exposure-legend a {
+  display: inline-block;
+  margin-top: 0.38rem;
+  color: #4c1d95;
+  font-weight: 750;
 }
 
 .map-legend strong {
@@ -581,9 +687,167 @@ a:focus-visible {
 }
 
 .chart-section,
-.science-card {
+.science-card,
+.exposure-card {
   margin-top: 1rem;
   padding: 1rem;
+}
+
+.exposure-card {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-color: #ddd0f8;
+}
+
+.exposure-heading .eyebrow,
+.exposure-card h2,
+.exposure-card h3 {
+  color: #4c1d95;
+}
+
+.exposure-grid {
+  display: grid;
+  grid-template-columns: minmax(230px, 0.72fr) minmax(0, 1.28fr);
+  gap: 0.72rem;
+}
+
+.exposure-grid > article {
+  min-width: 0;
+  padding: 0.78rem;
+  border: 1px solid #e2d8f6;
+  border-radius: 0.62rem;
+  background: #fbf9ff;
+}
+
+.exposure-grid h3 {
+  margin: 0 0 0.28rem;
+  font-size: 0.9rem;
+}
+
+.context-kicker,
+.panel-note,
+.osm-pilot-card p,
+.building-stock-card > p,
+.taxonomy-top-list > p {
+  margin: 0.25rem 0 0.65rem;
+  color: var(--muted);
+  font-size: 0.73rem;
+  line-height: 1.45;
+}
+
+.exposure-counts {
+  margin: 0;
+}
+
+.exposure-counts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.38rem 0;
+  border-top: 1px solid #e8e0f5;
+  font-size: 0.76rem;
+}
+
+.exposure-counts dt {
+  color: var(--muted);
+}
+
+.exposure-counts dd {
+  margin: 0;
+  font-weight: 800;
+}
+
+.stock-list {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.stock-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.7rem;
+  align-items: start;
+  padding: 0.5rem 0.56rem;
+  border-radius: 0.48rem;
+  background: white;
+}
+
+.stock-row strong,
+.stock-row span {
+  display: block;
+}
+
+.stock-row strong {
+  color: #4c1d95;
+  font-size: 0.77rem;
+}
+
+.stock-row span {
+  margin-top: 0.1rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+
+.stock-row b {
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.building-stock-card .more-details {
+  margin-top: 0.68rem;
+}
+
+.taxonomy-top-list {
+  margin: 0.5rem 0;
+}
+
+.taxonomy-row {
+  padding: 0.42rem 0;
+  border-top: 1px solid #e8e0f5;
+}
+
+.taxonomy-row code,
+.taxonomy-row span {
+  display: block;
+}
+
+.taxonomy-row span {
+  margin-top: 0.15rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.osm-attribution a {
+  color: #4c1d95;
+  font-weight: 750;
+}
+
+.popup-details {
+  margin-top: 0.45rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid #e3e7e9;
+}
+
+.popup-details summary {
+  margin-bottom: 0.3rem;
+  color: var(--accent-dark);
+  font-size: 0.72rem;
+  font-weight: 780;
+  cursor: pointer;
+}
+
+.cluster-count-label {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: white;
+  font-size: 0.67rem;
+  font-weight: 900;
+}
+
+.cluster-count-label::before {
+  display: none;
 }
 
 .section-heading {
@@ -820,7 +1084,8 @@ footer {
   }
 
   .chart-grid,
-  .science-columns {
+  .science-columns,
+  .exposure-grid {
     grid-template-columns: 1fr;
   }
 
@@ -864,6 +1129,14 @@ footer {
     height: 480px;
   }
 
+  .exposure-legend {
+    top: 0.75rem;
+    right: 0.75rem;
+    bottom: auto;
+    left: auto;
+    width: min(215px, calc(100% - 4.5rem));
+  }
+
   .risk-flow {
     grid-template-columns: 1fr 1fr;
   }
@@ -901,5 +1174,11 @@ footer {
   .map-legend {
     right: 0.5rem;
     bottom: 0.5rem;
+  }
+
+
+  .exposure-legend {
+    top: 3.2rem;
+    right: 0.5rem;
   }
 }

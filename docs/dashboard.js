@@ -10,11 +10,21 @@
     events:
       `${RAW_BASE}/outputs_gwfm/complete_output/earthquake_depth_pga_loss_summary.csv`,
     manifest: "./data/dashboard_manifest.json",
+    gemAdm1: "./data/exposure/gem_turkiye_adm1.json",
+    gemTaxonomy: "./data/exposure/gem_turkiye_taxonomy.json",
+    gemMetadata: "./data/exposure/gem_exposure_metadata.json",
+    adm1Boundary: "./data/exposure/turkiye_adm1.geojson",
+    elazigClusters: "./data/exposure/elazig_building_clusters.json",
+    elazigBuildings: "./data/exposure/elazig_buildings.geojson",
+    elazigMetadata: "./data/exposure/elazig_osm_metadata.json",
   };
 
   const SOURCE_ORDER = ["waveform", "isc_ehb", "global_cmt"];
   const MAP_LAYERS = ["vs30", "pga", "loss"];
+  const EXPOSURE_LAYERS = ["none", "gem", "elazig"];
+  const EXPOSURE_METRICS = ["TOTAL", "RES", "COM", "IND"];
   const DEFAULT_LAYER = "pga";
+  const DEFAULT_EXPOSURE = "none";
   const EXPECTED_RECEIVERS = 311;
   const EXPECTED_SCENARIOS = 321;
   const EXPECTED_FIELDS = [
@@ -41,6 +51,7 @@
 
   const VIRIDIS = ["#440154", "#3b528b", "#21918c", "#5ec962", "#fde725"];
   const LOSS_SCALE = ["#ffffcc", "#fed976", "#fd8d3c", "#e31a1c", "#800026"];
+  const EXPOSURE_SCALE = ["#fff7ec", "#fdd49e", "#fc8d59", "#d7301f", "#7f0000"];
   const ZERO_COLOUR = "#bdbdbd";
 
   const state = {
@@ -53,6 +64,7 @@
     scenarioCache: new Map(),
     map: null,
     boundaryLayer: null,
+    exposureLayer: null,
     thematicLayer: null,
     selectedEventLayer: null,
     otherEventLayer: null,
@@ -60,11 +72,20 @@
     selectedEventId: null,
     selectedSource: "waveform",
     selectedLayer: DEFAULT_LAYER,
+    selectedExposure: DEFAULT_EXPOSURE,
+    exposureMetric: "TOTAL",
     commonOnly: true,
     scenarioRequestToken: 0,
+    exposureRequestToken: 0,
     currentScenario: null,
     activeScale: null,
+    activeExposureScale: null,
     lastScenarioLoad: null,
+    exposureCache: new Map(),
+    exposureRenderMode: "none",
+    exposureFeatureCount: 0,
+    lastExposureError: null,
+    elazigZoomHandlerBound: false,
   };
 
   const el = {
@@ -76,10 +97,18 @@
     layerInputs: Array.from(
       document.querySelectorAll('input[name="map-variable"]')
     ),
+    exposureInputs: Array.from(
+      document.querySelectorAll('input[name="exposure"]')
+    ),
+    exposureMetricControl: document.getElementById("exposure-metric-control"),
+    exposureMetric: document.getElementById("exposure-metric"),
+    exposureStatus: document.getElementById("exposure-status"),
+    fitElazig: document.getElementById("fit-elazig"),
     showEvents: document.getElementById("show-events"),
     fitTurkey: document.getElementById("fit-turkey"),
     scenarioStatus: document.getElementById("scenario-status"),
     mapLegend: document.getElementById("map-legend"),
+    exposureLegend: document.getElementById("exposure-legend"),
     statEvents: document.getElementById("stat-events"),
     statCommon: document.getElementById("stat-common"),
     statReceivers: document.getElementById("stat-receivers"),
@@ -107,6 +136,21 @@
     metricLossNonzero: document.getElementById("metric-loss-nonzero"),
     sourceAvailability: document.getElementById("source-availability"),
     shareLink: document.getElementById("share-link"),
+    exposurePanel: document.getElementById("exposure-panel"),
+    exposurePanelTitle: document.getElementById("exposure-panel-title"),
+    exposurePanelSummary: document.getElementById("exposure-panel-summary"),
+    elazigContextCard: document.getElementById("elazig-context-card"),
+    elazigRes: document.getElementById("elazig-res"),
+    elazigCom: document.getElementById("elazig-com"),
+    elazigInd: document.getElementById("elazig-ind"),
+    buildingStockCard: document.getElementById("building-stock-card"),
+    buildingStockIntro: document.getElementById("building-stock-intro"),
+    macroStockList: document.getElementById("macro-stock-list"),
+    taxonomyTopList: document.getElementById("taxonomy-top-list"),
+    osmPilotCard: document.getElementById("osm-pilot-card"),
+    osmPilotSummary: document.getElementById("osm-pilot-summary"),
+    osmBuildingCount: document.getElementById("osm-building-count"),
+    osmRenderMode: document.getElementById("osm-render-mode"),
   };
 
   function failInitial(message, error) {
@@ -119,6 +163,11 @@
   function setScenarioStatus(message, status = "ready") {
     el.scenarioStatus.textContent = message;
     el.scenarioStatus.className = `scenario-status ${status}`;
+  }
+
+  function setExposureStatus(message, status = "ready") {
+    el.exposureStatus.textContent = message;
+    el.exposureStatus.className = `exposure-status ${status}`;
   }
 
   async function fetchText(url) {
@@ -200,12 +249,26 @@
     });
   }
 
+  function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>'"]/g, (character) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      "'": "&#39;",
+      '"': "&quot;",
+    })[character]);
+  }
+
   function scenarioKey(eventId, source) {
     return `${String(eventId)}::${source}`;
   }
 
   function normaliseLayer(value) {
     return MAP_LAYERS.includes(value) ? value : DEFAULT_LAYER;
+  }
+
+  function normaliseExposure(value) {
+    return EXPOSURE_LAYERS.includes(value) ? value : DEFAULT_EXPOSURE;
   }
 
   function sourceRowsForEvent(event) {
@@ -370,6 +433,11 @@
         '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     }).addTo(state.map);
 
+    state.map.createPane("exposure-polygons");
+    state.map.getPane("exposure-polygons").style.zIndex = 350;
+    state.map.createPane("exposure-symbols");
+    state.map.getPane("exposure-symbols").style.zIndex = 390;
+
     state.boundaryLayer = L.geoJSON(state.boundary, {
       style: {
         color: "#274e5d",
@@ -379,9 +447,15 @@
         fillOpacity: 0.08,
       },
     }).addTo(state.map);
+    state.exposureLayer = L.layerGroup().addTo(state.map);
     state.thematicLayer = L.layerGroup().addTo(state.map);
     state.otherEventLayer = L.layerGroup();
     state.selectedEventLayer = L.layerGroup().addTo(state.map);
+    state.map.on("zoomend", () => {
+      if (state.selectedExposure === "elazig") {
+        void renderElazigExposure();
+      }
+    });
     fitTurkey();
   }
 
@@ -687,6 +761,536 @@
     }
   }
 
+  function validateGemAdm1(payload) {
+    if (
+      !payload || payload.province_count !== 81 ||
+      !Array.isArray(payload.provinces) || payload.provinces.length !== 81
+    ) {
+      throw new Error("GEM Adm1 data must contain 81 provinces");
+    }
+    const ids = new Set();
+    const names = new Set();
+    for (const province of payload.provinces) {
+      if (
+        province.ID_0 !== "TUR" || !province.ID_1 || !province.NAME_1 ||
+        !province.BUILDINGS ||
+        !EXPOSURE_METRICS.every((metric) =>
+          Number.isFinite(Number(province.BUILDINGS[metric])) &&
+          Number(province.BUILDINGS[metric]) >= 0
+        ) ||
+        !Number.isFinite(Number(province.OCCUPANTS_TOTAL_RES)) ||
+        Number(province.OCCUPANTS_TOTAL_RES) < 0
+      ) {
+        throw new Error("GEM Adm1 province data are invalid");
+      }
+      if (ids.has(province.ID_1) || names.has(province.NAME_1)) {
+        throw new Error("GEM Adm1 identifiers and names must be unique");
+      }
+      ids.add(province.ID_1);
+      names.add(province.NAME_1);
+    }
+    const elazig = payload.provinces.find((province) => province.ID_1 === "TR-23");
+    if (!elazig || elazig.NAME_1 !== "Elazığ") {
+      throw new Error("GEM Adm1 data do not contain Elazığ as TR-23");
+    }
+    return payload;
+  }
+
+  function validateGemTaxonomy(payload) {
+    if (
+      !payload || !Array.isArray(payload.records) ||
+      !Array.isArray(payload.macro_groups) || !Array.isArray(payload.top_taxonomies) ||
+      payload.records.length !== payload.taxonomy_record_count
+    ) {
+      throw new Error("GEM taxonomy summary is invalid");
+    }
+    for (const record of payload.records) {
+      if (
+        !record.MACRO_TAXONOMY || !record.TAXONOMY ||
+        !["RES", "COM", "IND"].includes(record.OCCUPANCY) ||
+        !Number.isFinite(Number(record.BUILDINGS)) || Number(record.BUILDINGS) < 0
+      ) {
+        throw new Error("GEM taxonomy record is invalid");
+      }
+    }
+    return payload;
+  }
+
+  function validateGemMetadata(payload) {
+    if (
+      !payload || !payload.gem ||
+      payload.gem.version !== "v2026.0.0" ||
+      payload.gem.licence !== "CC BY-NC-SA 4.0" ||
+      typeof payload.gem.country_readme !== "string"
+    ) {
+      throw new Error("GEM exposure metadata are invalid");
+    }
+    return payload;
+  }
+
+  function validateAdm1Boundary(payload) {
+    if (
+      !payload || payload.type !== "FeatureCollection" ||
+      !Array.isArray(payload.features) || payload.features.length !== 81
+    ) {
+      throw new Error("Türkiye Adm1 boundary must contain 81 features");
+    }
+    const ids = new Set();
+    for (const feature of payload.features) {
+      const id = feature.properties && feature.properties.ID_1;
+      const geometryType = feature.geometry && feature.geometry.type;
+      if (!id || !["Polygon", "MultiPolygon"].includes(geometryType) || ids.has(id)) {
+        throw new Error("Türkiye Adm1 boundary feature is invalid or duplicated");
+      }
+      ids.add(id);
+    }
+    return payload;
+  }
+
+  function validateElazigClusters(payload) {
+    if (
+      !payload || !Number.isInteger(payload.feature_count) || payload.feature_count <= 0 ||
+      !payload.levels || !payload.levels.overview || !payload.levels.local
+    ) {
+      throw new Error("Elazığ cluster data are invalid");
+    }
+    for (const levelName of ["overview", "local"]) {
+      const level = payload.levels[levelName];
+      if (!Array.isArray(level.clusters) || level.clusters.length !== level.cluster_count) {
+        throw new Error(`Elazığ ${levelName} clusters are invalid`);
+      }
+      const total = level.clusters.reduce((sum, cluster) => sum + Number(cluster.count), 0);
+      if (total !== payload.feature_count) {
+        throw new Error(`Elazığ ${levelName} cluster total does not match footprints`);
+      }
+    }
+    return payload;
+  }
+
+  function validateElazigBuildings(payload) {
+    if (!payload || payload.type !== "FeatureCollection" || !Array.isArray(payload.features)) {
+      throw new Error("Elazığ building data must be a GeoJSON FeatureCollection");
+    }
+    const ids = new Set();
+    for (const feature of payload.features) {
+      const properties = feature.properties || {};
+      const geometryType = feature.geometry && feature.geometry.type;
+      if (
+        !properties.osm_id || ids.has(properties.osm_id) ||
+        !["Polygon", "MultiPolygon"].includes(geometryType) ||
+        properties.source !== "OpenStreetMap" ||
+        properties.vulnerability_function_id !== null ||
+        properties.vulnerability_class !== "Not assigned" ||
+        Object.prototype.hasOwnProperty.call(properties, "GEM_TAXONOMY")
+      ) {
+        throw new Error("Elazığ building feature failed provenance validation");
+      }
+      ids.add(properties.osm_id);
+    }
+    if (!payload.features.length) {
+      throw new Error("Elazığ building data contain no footprints");
+    }
+    return payload;
+  }
+
+  function validateElazigMetadata(payload) {
+    if (
+      !payload ||
+      payload.source !== "OpenStreetMap" ||
+      payload.licence !== "ODbL 1.0" ||
+      payload.attribution !== "© OpenStreetMap contributors" ||
+      !Number.isInteger(payload.feature_count) ||
+      payload.feature_count <= 0 ||
+      !payload.study_area ||
+      payload.study_area.type !== "fixed urban bounding box" ||
+      payload.study_area.is_official_boundary !== false
+    ) {
+      throw new Error("Elazığ OSM metadata are invalid");
+    }
+    return payload;
+  }
+
+  async function loadExposureData(key, url, validator = (payload) => payload) {
+    if (state.exposureCache.has(key)) {
+      return state.exposureCache.get(key);
+    }
+    const promise = fetchJson(url)
+      .then(validator)
+      .catch((error) => {
+        state.exposureCache.delete(key);
+        throw error;
+      });
+    state.exposureCache.set(key, promise);
+    return promise;
+  }
+
+  function renderElazigProvinceContext(adm1) {
+    const province = adm1.provinces.find((item) => item.ID_1 === "TR-23");
+    el.elazigRes.textContent = formatNumber(province.BUILDINGS.RES, 0);
+    el.elazigCom.textContent = formatNumber(province.BUILDINGS.COM, 0);
+    el.elazigInd.textContent = formatNumber(province.BUILDINGS.IND, 0);
+  }
+
+  function renderBuildingStock(taxonomy) {
+    const topMacro = taxonomy.macro_groups.slice(0, 5);
+    el.buildingStockIntro.textContent =
+      "Top five Türkiye-wide GEM macro-taxonomy groups by aggregate building count.";
+    el.macroStockList.innerHTML = topMacro.map((item) => `
+      <div class="stock-row">
+        <div><strong>${escapeHtml(item.MACRO_TAXONOMY)}</strong><span>${escapeHtml(item.description)}</span></div>
+        <b>${formatNumber(item.BUILDINGS, 0)}</b>
+      </div>
+    `).join("");
+    el.taxonomyTopList.innerHTML = `
+      <p>Five largest exact GEM taxonomy/occupancy records:</p>
+      ${taxonomy.top_taxonomies.map((item) => `
+        <div class="taxonomy-row">
+          <code>${escapeHtml(item.TAXONOMY)}</code>
+          <span>${escapeHtml(item.OCCUPANCY)} · ${formatNumber(item.BUILDINGS, 0)} buildings</span>
+        </div>
+      `).join("")}
+      <p class="panel-note">No structural loss is calculated for these classes.</p>
+    `;
+  }
+
+  function showGemPanel(adm1, taxonomy) {
+    el.exposurePanel.hidden = false;
+    el.exposurePanelTitle.textContent = "GEM province exposure";
+    el.exposurePanelSummary.textContent =
+      "Aggregate building stock by Türkiye first-level administrative unit; not individual building locations.";
+    el.elazigContextCard.hidden = false;
+    el.buildingStockCard.hidden = false;
+    el.osmPilotCard.hidden = true;
+    renderElazigProvinceContext(adm1);
+    renderBuildingStock(taxonomy);
+  }
+
+  function showElazigPanel(adm1, metadata, renderMode) {
+    el.exposurePanel.hidden = false;
+    el.exposurePanelTitle.textContent = "Elazığ mapped-building pilot";
+    el.exposurePanelSummary.textContent =
+      "Descriptive OpenStreetMap geometry in a fixed urban pilot box, separate from receiver risk.";
+    el.elazigContextCard.hidden = false;
+    el.buildingStockCard.hidden = true;
+    el.osmPilotCard.hidden = false;
+    renderElazigProvinceContext(adm1);
+    el.osmBuildingCount.textContent = formatNumber(metadata.feature_count, 0);
+    el.osmRenderMode.textContent = renderMode;
+    el.osmPilotSummary.textContent =
+      "Closed building-tagged OSM ways only. The fixed box is not an official city or administrative boundary.";
+  }
+
+  function exposureMetricLabel(metric) {
+    return ({
+      TOTAL: "Total buildings",
+      RES: "Residential buildings",
+      COM: "Commercial buildings",
+      IND: "Industrial buildings",
+    })[metric] || "Total buildings";
+  }
+
+  function gemProvincePopup(province) {
+    return `
+      <div class="popup-title">${escapeHtml(province.NAME_1)}</div>
+      <div class="popup-grid">
+        <span>Total buildings</span><strong>${formatNumber(province.BUILDINGS.TOTAL, 0)}</strong>
+        <span>Residential</span><strong>${formatNumber(province.BUILDINGS.RES, 0)}</strong>
+        <span>Commercial</span><strong>${formatNumber(province.BUILDINGS.COM, 0)}</strong>
+        <span>Industrial</span><strong>${formatNumber(province.BUILDINGS.IND, 0)}</strong>
+        <span>Residential occupants</span><strong>${formatNumber(province.OCCUPANTS_TOTAL_RES, 0)}</strong>
+      </div>
+      <details class="popup-details">
+        <summary>More details</summary>
+        <div class="popup-grid">
+          <span>Building replacement cost</span><strong>USD ${formatNumber(province.BLDG_REPL_COST_USD, 0)}</strong>
+          <span>Built-up area</span><strong>${formatNumber(province.TOTAL_AREA_SQM, 0)} m²</strong>
+        </div>
+      </details>
+    `;
+  }
+
+  function renderGemExposureLegend(minimum, maximum, metadata) {
+    const middle = Math.sqrt(Math.max(1, minimum) * Math.max(1, maximum));
+    el.exposureLegend.hidden = false;
+    el.exposureLegend.innerHTML = `
+      <strong>GEM exposure, Adm1 aggregate</strong>
+      <span>${escapeHtml(exposureMetricLabel(state.exposureMetric))}</span>
+      <div class="legend-gradient" style="background:${paletteGradient(EXPOSURE_SCALE)}"></div>
+      <div class="legend-labels">
+        ${[minimum, middle, maximum].map((value) => `<span>${formatNumber(value, 0)}</span>`).join("")}
+      </div>
+      <span class="legend-note">Logarithmic province scale; polygons are not building locations.</span>
+      <a href="${escapeHtml(metadata.gem.country_readme)}" target="_blank" rel="noreferrer">
+        GEM Global Exposure Model ${escapeHtml(metadata.gem.version)}
+      </a>
+      <span class="legend-note">${escapeHtml(metadata.gem.licence)} · province geometry: geoBoundaries.</span>
+    `;
+    state.activeExposureScale = {
+      layer: "gem",
+      metric: state.exposureMetric,
+      type: "log",
+      minimum,
+      maximum,
+    };
+  }
+
+  function bringModelLayersToFront() {
+    for (const group of [state.thematicLayer, state.otherEventLayer, state.selectedEventLayer]) {
+      if (!group) continue;
+      group.eachLayer((layer) => {
+        if (typeof layer.bringToFront === "function") layer.bringToFront();
+      });
+    }
+  }
+
+  async function renderGemExposure() {
+    const requestToken = ++state.exposureRequestToken;
+    setExposureStatus("Loading GEM province exposure…", "loading");
+    try {
+      const [adm1, taxonomy, boundary, metadata] = await Promise.all([
+        loadExposureData("gem-adm1", DATA_URLS.gemAdm1, validateGemAdm1),
+        loadExposureData("gem-taxonomy", DATA_URLS.gemTaxonomy, validateGemTaxonomy),
+        loadExposureData("gem-boundary", DATA_URLS.adm1Boundary, validateAdm1Boundary),
+        loadExposureData("gem-metadata", DATA_URLS.gemMetadata, validateGemMetadata),
+      ]);
+      if (requestToken !== state.exposureRequestToken || state.selectedExposure !== "gem") return;
+
+      const provinces = new Map(adm1.provinces.map((province) => [province.ID_1, province]));
+      const boundaryIds = new Set(boundary.features.map((feature) => feature.properties.ID_1));
+      if (boundaryIds.size !== provinces.size || [...provinces.keys()].some((id) => !boundaryIds.has(id))) {
+        throw new Error("GEM exposure and Adm1 boundaries do not join one-to-one");
+      }
+      const values = adm1.provinces.map((province) => Number(province.BUILDINGS[state.exposureMetric]));
+      const positive = values.filter((value) => value > 0);
+      const minimum = Math.min(...positive);
+      const maximum = Math.max(...positive);
+      const logMinimum = Math.log(minimum);
+      const logSpan = Math.log(maximum) - logMinimum;
+      const colour = (value) => {
+        if (value <= 0) return ZERO_COLOUR;
+        const scaled = logSpan > 0 ? (Math.log(value) - logMinimum) / logSpan : 0.5;
+        return interpolatePalette(EXPOSURE_SCALE, scaled);
+      };
+
+      state.exposureLayer.clearLayers();
+      L.geoJSON(boundary, {
+        pane: "exposure-polygons",
+        style: (feature) => {
+          const province = provinces.get(feature.properties.ID_1);
+          return {
+            pane: "exposure-polygons",
+            color: "#713b2f",
+            weight: 0.9,
+            opacity: 0.8,
+            fillColor: colour(Number(province.BUILDINGS[state.exposureMetric])),
+            fillOpacity: 0.62,
+          };
+        },
+        onEachFeature: (feature, layer) => {
+          const province = provinces.get(feature.properties.ID_1);
+          layer.bindPopup(gemProvincePopup(province), { maxWidth: 320 });
+          layer.bindTooltip(
+            `${escapeHtml(province.NAME_1)} · ${formatNumber(province.BUILDINGS[state.exposureMetric], 0)}`,
+            { sticky: true }
+          );
+        },
+      }).addTo(state.exposureLayer);
+      renderGemExposureLegend(minimum, maximum, metadata);
+      showGemPanel(adm1, taxonomy);
+      state.exposureRenderMode = "province choropleth";
+      state.exposureFeatureCount = boundary.features.length;
+      state.lastExposureError = null;
+      setExposureStatus("81 GEM province aggregates · source cached after first load");
+      bringModelLayersToFront();
+    } catch (error) {
+      if (requestToken !== state.exposureRequestToken) return;
+      handleExposureError("GEM province exposure unavailable", error);
+    }
+  }
+
+  function clusterPopup(cluster) {
+    const tags = (cluster.top_building_tags || [])
+      .map((item) => `${escapeHtml(item.tag)} (${formatNumber(item.count, 0)})`)
+      .join(", ");
+    return `
+      <div class="popup-title">OSM building cluster</div>
+      <div class="popup-grid">
+        <span>Mapped footprints</span><strong>${formatNumber(cluster.count, 0)}</strong>
+        <span>Common tags</span><strong>${tags || "Not supplied"}</strong>
+        <span>Vulnerability class</span><strong>Not assigned</strong>
+      </div>
+    `;
+  }
+
+  function renderElazigClusterLayer(level) {
+    for (const cluster of level.clusters) {
+      const marker = L.circleMarker([cluster.latitude, cluster.longitude], {
+        pane: "exposure-symbols",
+        radius: Math.min(22, 6 + Math.sqrt(cluster.count) * 0.6),
+        color: "#ffffff",
+        weight: 1.2,
+        fillColor: "#7c3aed",
+        fillOpacity: 0.82,
+      });
+      marker.bindTooltip(formatNumber(cluster.count, 0), {
+        pane: "exposure-symbols",
+        permanent: true,
+        direction: "center",
+        className: "cluster-count-label",
+      });
+      marker.bindPopup(clusterPopup(cluster));
+      marker.on("click", () => {
+        const [west, south, east, north] = cluster.bounds;
+        if (west === east && south === north) {
+          state.map.setView([cluster.latitude, cluster.longitude], 14);
+        } else {
+          state.map.fitBounds([[south, west], [north, east]], { maxZoom: 14, padding: [24, 24] });
+        }
+      });
+      marker.addTo(state.exposureLayer);
+    }
+  }
+
+  function osmBuildingPopup(properties) {
+    return `
+      <div class="popup-title">OSM building</div>
+      <div class="popup-grid">
+        <span>OSM ID</span><strong>${escapeHtml(properties.osm_id)}</strong>
+        <span>Tag</span><strong>${escapeHtml(properties.building || "not supplied")}</strong>
+        ${properties.name ? `<span>Name</span><strong>${escapeHtml(properties.name)}</strong>` : ""}
+        ${properties.levels ? `<span>Levels</span><strong>${escapeHtml(properties.levels)}</strong>` : ""}
+        <span>Source</span><strong>OpenStreetMap</strong>
+        <span>Vulnerability class</span><strong>Not assigned</strong>
+      </div>
+    `;
+  }
+
+  async function renderElazigExposure() {
+    const requestToken = ++state.exposureRequestToken;
+    setExposureStatus("Loading Elazığ exposure context…", "loading");
+    try {
+      const [clusters, metadata, adm1] = await Promise.all([
+        loadExposureData("elazig-clusters", DATA_URLS.elazigClusters, validateElazigClusters),
+        loadExposureData("elazig-metadata", DATA_URLS.elazigMetadata, validateElazigMetadata),
+        loadExposureData("gem-adm1", DATA_URLS.gemAdm1, validateGemAdm1),
+      ]);
+      if (requestToken !== state.exposureRequestToken || state.selectedExposure !== "elazig") return;
+
+      state.exposureLayer.clearLayers();
+      const zoom = state.map.getZoom();
+      let renderMode;
+      if (zoom <= clusters.levels.overview.max_zoom) {
+        renderElazigClusterLayer(clusters.levels.overview);
+        renderMode = "overview clusters";
+        state.exposureFeatureCount = clusters.levels.overview.cluster_count;
+      } else if (zoom <= clusters.levels.local.max_zoom) {
+        renderElazigClusterLayer(clusters.levels.local);
+        renderMode = "local clusters";
+        state.exposureFeatureCount = clusters.levels.local.cluster_count;
+      } else {
+        setExposureStatus("Loading individual Elazığ footprints…", "loading");
+        const buildings = await loadExposureData(
+          "elazig-buildings", DATA_URLS.elazigBuildings, validateElazigBuildings
+        );
+        if (requestToken !== state.exposureRequestToken || state.selectedExposure !== "elazig") return;
+        if (buildings.features.length !== clusters.feature_count) {
+          throw new Error("Elazığ building and cluster feature totals do not match");
+        }
+        L.geoJSON(buildings, {
+          pane: "exposure-polygons",
+          style: {
+            pane: "exposure-polygons",
+            color: "#5b21b6",
+            weight: 0.8,
+            fillColor: "#a78bfa",
+            fillOpacity: 0.48,
+          },
+          onEachFeature: (feature, layer) => {
+            layer.bindPopup(osmBuildingPopup(feature.properties), { maxWidth: 300 });
+          },
+        }).addTo(state.exposureLayer);
+        renderMode = "individual footprints";
+        state.exposureFeatureCount = buildings.features.length;
+      }
+
+      el.exposureLegend.hidden = false;
+      el.exposureLegend.innerHTML = `
+        <strong>Elazığ mapped buildings</strong>
+        <span>${formatNumber(clusters.feature_count, 0)} OSM footprints intersecting a fixed pilot query box</span>
+        <span class="legend-note">${escapeHtml(renderMode)} at this zoom · no vulnerability class assigned.</span>
+        <a href="https://www.openstreetmap.org/copyright">© OpenStreetMap contributors</a>
+        <span class="legend-note">ODbL 1.0</span>
+      `;
+      state.activeExposureScale = { layer: "elazig", type: renderMode, zoom };
+      state.exposureRenderMode = renderMode;
+      state.lastExposureError = null;
+      showElazigPanel(adm1, metadata, renderMode);
+      setExposureStatus(`${formatNumber(clusters.feature_count, 0)} OSM footprints · ${renderMode}`);
+      bringModelLayersToFront();
+    } catch (error) {
+      if (requestToken !== state.exposureRequestToken) return;
+      handleExposureError("Elazığ building exposure unavailable", error);
+    }
+  }
+
+  function clearExposure() {
+    ++state.exposureRequestToken;
+    state.exposureLayer.clearLayers();
+    el.exposureLegend.hidden = true;
+    el.exposureLegend.innerHTML = "";
+    el.exposurePanel.hidden = true;
+    state.activeExposureScale = null;
+    state.exposureRenderMode = "none";
+    state.exposureFeatureCount = 0;
+    state.lastExposureError = null;
+    setExposureStatus("Exposure overlay off");
+  }
+
+  async function fitElazigPilot() {
+    try {
+      const metadata = await loadExposureData(
+        "elazig-metadata", DATA_URLS.elazigMetadata, validateElazigMetadata
+      );
+      const area = metadata.study_area;
+      if (!area || area.type !== "fixed urban bounding box") {
+        throw new Error("Elazığ pilot bounds are unavailable");
+      }
+      state.map.fitBounds(
+        [[Number(area.south), Number(area.west)], [Number(area.north), Number(area.east)]],
+        { maxZoom: 13, padding: [28, 28] }
+      );
+    } catch (error) {
+      handleExposureError("Elazığ pilot extent unavailable", error);
+    }
+  }
+
+  function handleExposureError(message, error) {
+    state.exposureLayer.clearLayers();
+    el.exposureLegend.hidden = false;
+    el.exposureLegend.innerHTML = `
+      <strong>Exposure unavailable</strong>
+      <span class="legend-note">The receiver hazard/loss layers remain available.</span>
+    `;
+    el.exposurePanel.hidden = true;
+    state.exposureRenderMode = "error";
+    state.exposureFeatureCount = 0;
+    state.lastExposureError = error.message;
+    setExposureStatus(`${message}: ${error.message}`, "error");
+    console.error(message, error);
+  }
+
+  function renderExposure() {
+    el.exposureMetricControl.hidden = state.selectedExposure !== "gem";
+    el.fitElazig.hidden = state.selectedExposure !== "elazig";
+    if (state.selectedExposure === "none") {
+      clearExposure();
+    } else if (state.selectedExposure === "gem") {
+      void renderGemExposure();
+    } else {
+      void renderElazigExposure();
+    }
+  }
+
   function eventMarkerRadius(event, selected = false) {
     const magnitudeRadius = Math.max(4, 4 + (event.magnitude - 5) * 2.1);
     return selected ? Math.max(6, magnitudeRadius + 1) : Math.max(3, magnitudeRadius * 0.68);
@@ -941,6 +1545,7 @@
     if (state.selectedEventId) url.searchParams.set("event", state.selectedEventId);
     url.searchParams.set("source", state.selectedSource);
     url.searchParams.set("layer", state.selectedLayer);
+    url.searchParams.set("exposure", state.selectedExposure);
     window.history.replaceState({}, "", url);
     el.shareLink.href = url.toString();
   }
@@ -985,6 +1590,19 @@
     void renderThematicLayer();
   }
 
+  function applyExposure(exposure) {
+    const nextExposure = normaliseExposure(exposure);
+    if (nextExposure !== state.selectedExposure) {
+      clearExposure();
+    }
+    state.selectedExposure = nextExposure;
+    for (const input of el.exposureInputs) {
+      input.checked = input.value === state.selectedExposure;
+    }
+    updateUrl();
+    renderExposure();
+  }
+
   function populateStats() {
     const events = Array.from(state.eventsById.values());
     const common = events.filter((event) => event.isCommon);
@@ -1001,6 +1619,7 @@
     const requestedEvent = params.get("event");
     const requestedSource = params.get("source");
     state.selectedLayer = normaliseLayer(params.get("layer"));
+    state.selectedExposure = normaliseExposure(params.get("exposure"));
 
     if (requestedSource && SOURCE_ORDER.includes(requestedSource)) {
       state.selectedSource = requestedSource;
@@ -1018,8 +1637,12 @@
     for (const input of el.layerInputs) {
       input.checked = input.value === state.selectedLayer;
     }
+    for (const input of el.exposureInputs) {
+      input.checked = input.value === state.selectedExposure;
+    }
     buildEventOptions();
     selectEvent(state.selectedEventId, false);
+    renderExposure();
   }
 
   function bindControls() {
@@ -1040,6 +1663,17 @@
         if (event.target.checked) applyLayer(event.target.value);
       });
     }
+    for (const input of el.exposureInputs) {
+      input.addEventListener("change", (event) => {
+        if (event.target.checked) applyExposure(event.target.value);
+      });
+    }
+    el.exposureMetric.addEventListener("change", (event) => {
+      if (!EXPOSURE_METRICS.includes(event.target.value)) return;
+      state.exposureMetric = event.target.value;
+      if (state.selectedExposure === "gem") void renderGemExposure();
+    });
+    el.fitElazig.addEventListener("click", () => void fitElazigPilot());
     el.showEvents.addEventListener("change", updateEventLayerVisibility);
     el.fitTurkey.addEventListener("click", fitTurkey);
   }
@@ -1050,6 +1684,8 @@
         selectedEventId: state.selectedEventId,
         selectedSource: state.selectedSource,
         selectedLayer: state.selectedLayer,
+        selectedExposure: state.selectedExposure,
+        exposureMetric: state.exposureMetric,
         commonOnly: state.commonOnly,
         eventCount: state.eventsById.size,
         scenarioCount: state.scenarioIndex.size,
@@ -1062,9 +1698,16 @@
           ? scenarioKey(state.currentScenario.event_id, state.currentScenario.depth_source)
           : null,
         activeScale: state.activeScale,
+        activeExposureScale: state.activeExposureScale,
+        exposureRenderMode: state.exposureRenderMode,
+        exposureFeatureCount: state.exposureFeatureCount,
+        exposureCacheKeys: Array.from(state.exposureCache.keys()),
+        elazigBuildingsLoaded: state.exposureCache.has("elazig-buildings"),
+        lastExposureError: state.lastExposureError,
         lastScenarioLoad: state.lastScenarioLoad,
       }),
       normaliseLayer,
+      normaliseExposure,
       formatPga,
       formatLoss,
       scenarioKey,

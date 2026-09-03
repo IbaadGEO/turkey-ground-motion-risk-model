@@ -27,11 +27,13 @@ receiver-level PGA and structural-loss fields for each valid catalogue depth:
 
 Dashboard Version 2 loads only the selected event/depth receiver file, presents
 maximum and mean PGA/loss values, and keeps Vs30, PGA and structural-loss map
-legends specific to the active layer. It is a visual companion to the
-repository: it reads published model outputs and does not replace the
-documented Python workflow or rerun the ground-motion and vulnerability
-calculations in the browser. Building/city exposure is not yet assigned to the
-production receiver model.
+legends specific to the active layer. An optional, separate exposure control
+adds aggregate GEM province data or a small OpenStreetMap building-footprint
+pilot for Elazığ. These overlays do not change the 311-receiver calculations,
+and no OSM footprint has been assigned a GEM vulnerability class or
+building-level loss. The dashboard remains a visual companion to the
+repository and does not rerun the GMPE or vulnerability calculations in the
+browser.
 
 ## Python setup
 
@@ -218,6 +220,44 @@ structural vulnerability*. Bulletin of Earthquake Engineering.
 
 GEM source repository:
 <https://github.com/gem/global_vulnerability_model/tree/v2026.0.0>
+
+### Dashboard exposure datasets
+
+The optional dashboard exposure overlay uses only the open aggregate summaries
+from the GEM Global Exposure Model v2026.0.0 Türkiye directory:
+
+- `Exposure_Summary_Adm0.csv`;
+- `Exposure_Summary_Adm1.csv`; and
+- `Exposure_Summary_Taxonomy.csv`.
+
+The pinned source is
+<https://github.com/gem/global_exposure_model/tree/v2026.0.0/Europe/Turkiye>.
+The GEM material is licensed CC BY-NC-SA 4.0 and uses GEM Building Taxonomy
+v4.0. The restricted/full 1 km exposure model is not downloaded or used.
+
+`prepare_gem_exposure_dashboard.py` validates the source schema, the 81 unique
+Adm1 provinces, RES/COM/IND values, the `TR-23` Elazığ record and the one-to-one
+boundary join. It exports static JSON and a simplified WGS84 GeoJSON under
+`docs/data/exposure/`; the browser never fetches GEM GitHub at runtime.
+
+The province geometry is the simplified geoBoundaries gbOpen Türkiye ADM1
+dataset pinned to source commit `9469f09`. GEM's country README documents the
+boundary source as GeoBoundaries under CC BY 4.0. The exact GeoBoundaries API
+record used for the file identifies an OpenStreetMap-derived source and reports
+CC BY-SA 2.0, so both provenance statements are retained in the generated
+metadata rather than silently replacing one with the other.
+
+`prepare_elazig_osm_dashboard.py` performs a documented one-time Overpass
+extraction of closed, building-tagged OpenStreetMap ways intersecting a fixed central
+Elazığ pilot box (`38.66, 39.18, 38.69, 39.23`). The box is not an official city
+or administrative boundary. The resulting footprints and precomputed clusters
+are static; the live dashboard does not query Overpass. OSM data are available
+under ODbL 1.0 with attribution `© OpenStreetMap contributors`.
+
+GEM Adm1 values are aggregate province exposure. OSM footprints are mapped
+geometry rather than a complete structural inventory. OSM tags have not been
+converted to GEM taxonomy, and no building-level structural-loss calculation
+has been validated.
 
 ### Turkey boundary and mapping data
 
@@ -481,6 +521,12 @@ The 99,831-row complete CSV is a generated output and is ignored by Git. The
 - One residential structural vulnerability function is applied at every model
   receiver; the receiver grid is not a building exposure inventory.
 - Structural loss ratios are not insured or monetary loss estimates.
+- GEM dashboard exposure is an aggregate province context layer, not individual
+  building locations.
+- The Elazığ OSM pilot is descriptive mapped geometry intersecting a fixed query
+  box; it is not a complete city or province inventory.
+- No OSM tag has been mapped to GEM taxonomy and no building-level PGA or
+  structural loss has been calculated.
 - The GEM vulnerability data are for non-commercial use under the included
   licence.
 - `vs30_map.png` shows the 311 production receiver values. The separate

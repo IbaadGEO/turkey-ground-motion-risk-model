@@ -20,15 +20,19 @@ This GitHub repository is the primary project record for the scientific
 methodology, source data, code, tests and derived outputs.
 
 An optional browser-based dashboard is also available for visually exploring
-the Turkey boundary, earthquake locations, the 50 km Vs30 receiver grid,
-catalogue depth alternatives, PGA and structural-loss summaries:
+the Turkey boundary, earthquake locations, the 50 km Vs30 receiver grid and
+receiver-level PGA and structural-loss fields for each valid catalogue depth:
 
 **[Open the interactive dashboard](https://ibaadgeo.github.io/turkey-ground-motion-risk-model/)**
 
-The dashboard is a visual companion to the repository. It reads published
-project outputs from the repository and does not replace the documented Python
-workflow or rerun the ground-motion and vulnerability calculations in the
-browser.
+Dashboard Version 2 loads only the selected event/depth receiver file, presents
+maximum and mean PGA/loss values, and keeps Vs30, PGA and structural-loss map
+legends specific to the active layer. It is a visual companion to the
+repository: it reads published model outputs and does not replace the
+documented Python workflow or rerun the ground-motion and vulnerability
+calculations in the browser. Building/city exposure is not yet assigned to the
+production receiver model.
+
 ## Python setup
 
 The project has been tested on Windows with Python 3.13.7. A Python 3.12
@@ -474,7 +478,8 @@ The 99,831-row complete CSV is a generated output and is ignored by Git. The
 
 - Some ISC-EHB and Global CMT depths are missing and are not used.
 - Deep earthquakes and distances beyond 200 km are retained but flagged.
-- One residential building type is used at every location.
+- One residential structural vulnerability function is applied at every model
+  receiver; the receiver grid is not a building exposure inventory.
 - Structural loss ratios are not insured or monetary loss estimates.
 - The GEM vulnerability data are for non-commercial use under the included
   licence.

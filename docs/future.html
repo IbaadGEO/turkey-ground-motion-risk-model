@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>Expandable Türkiye-Region Earthquake Dashboard</title>
+  <meta
+    name="description"
+    content="Updateable recent-earthquake catalogue view for the Türkiye region, kept separate from fixed placement model outputs."
+  >
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  >
+  <link rel="stylesheet" href="./dashboard.css?v=20260903-2">
+  <link rel="stylesheet" href="./scope.css?v=20260906-1">
+</head>
+<body data-dashboard-scope="expandable">
+  <header class="site-header">
+    <div>
+      <p class="eyebrow">Expandable earthquake dashboard</p>
+      <h1>Recent Türkiye-Region Earthquakes</h1>
+      <p class="subtitle">
+        A separate updateable catalogue view for newer earthquake data. It does
+        not reuse or alter the fixed placement-model conclusions.
+      </p>
+    </div>
+    <div class="header-actions">
+      <a class="repo-link scope-link" href="./index.html">Research dashboard</a>
+      <a
+        class="repo-link"
+        href="https://github.com/IbaadGEO/turkey-ground-motion-risk-model"
+        target="_blank"
+        rel="noreferrer"
+      >View repository</a>
+    </div>
+  </header>
+
+  <section class="scope-banner" aria-label="Expandable dashboard scope">
+    <strong>Expandable scope:</strong>
+    this page loads recent catalogue events from the USGS earthquake service
+    for a fixed Türkiye-region bounding box. It is intentionally separate from
+    the 117-event placement dataset and does not calculate placement-model PGA
+    or structural loss for these new events.
+  </section>
+
+  <main class="future-shell">
+    <div class="future-grid">
+      <aside class="future-sidebar" aria-label="Recent earthquake controls">
+        <p class="eyebrow">Live catalogue controls</p>
+        <h2>Updateable event view</h2>
+
+        <label for="future-window">Time window</label>
+        <select id="future-window">
+          <option value="7">Last 7 days</option>
+          <option value="30" selected>Last 30 days</option>
+          <option value="90">Last 90 days</option>
+        </select>
+
+        <label for="future-min-mag">Minimum magnitude</label>
+        <select id="future-min-mag">
+          <option value="2.5" selected>M 2.5+</option>
+          <option value="3">M 3.0+</option>
+          <option value="4">M 4.0+</option>
+          <option value="5">M 5.0+</option>
+        </select>
+
+        <button id="future-refresh" class="secondary-button" type="button">
+          Refresh recent earthquakes
+        </button>
+
+        <p id="future-status" class="future-status" role="status">
+          Waiting to load recent catalogue data.
+        </p>
+
+        <details class="coverage-details">
+          <summary>Strict data scope</summary>
+          <p class="future-source-note">
+            Geographic query box: 35.0&ndash;43.0°N, 24.0&ndash;46.0°E.
+            This is a Türkiye-region search box, not a political-boundary filter.
+          </p>
+          <p class="future-source-note">
+            The fixed research dashboard remains unchanged when this page refreshes.
+          </p>
+        </details>
+      </aside>
+
+      <section class="future-main">
+        <div class="future-top-grid">
+          <section class="future-map-card" aria-labelledby="future-map-heading">
+            <h2 id="future-map-heading" class="visually-hidden">Recent earthquake map</h2>
+            <div id="future-map" aria-label="Recent earthquakes in the Türkiye region"></div>
+          </section>
+
+          <aside class="future-card" aria-live="polite">
+            <p class="eyebrow">Selected recent event</p>
+            <h2 id="future-event-title">Select an earthquake</h2>
+            <p id="future-event-time" class="event-origin"></p>
+            <span class="scope-badge">Catalogue data only</span>
+
+            <dl class="future-detail-grid">
+              <div><dt>Magnitude</dt><dd id="future-event-mag">&ndash;</dd></div>
+              <div><dt>Depth</dt><dd id="future-event-depth">&ndash;</dd></div>
+              <div><dt>Latitude</dt><dd id="future-event-lat">&ndash;</dd></div>
+              <div><dt>Longitude</dt><dd id="future-event-lon">&ndash;</dd></div>
+              <div><dt>USGS event ID</dt><dd id="future-event-id">&ndash;</dd></div>
+              <div><dt>Review status</dt><dd id="future-event-status">&ndash;</dd></div>
+            </dl>
+
+            <p class="future-source-note">
+              No PGA, Vs30 sampling, vulnerability assignment or structural-loss
+              value is generated on this page.
+            </p>
+            <a id="future-event-link" class="share-link" href="#" target="_blank" rel="noreferrer" hidden>
+              Open USGS event record
+            </a>
+          </aside>
+        </div>
+
+        <section class="future-table-card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Current query result</p>
+              <h2>Recent earthquake catalogue</h2>
+            </div>
+            <p id="future-generated">Not loaded</p>
+          </div>
+
+          <div class="future-summary-grid" aria-label="Recent catalogue summary">
+            <article><span>Events returned</span><strong id="future-count">&ndash;</strong></article>
+            <article><span>Largest magnitude</span><strong id="future-max-mag">&ndash;</strong></article>
+            <article><span>Shallowest depth</span><strong id="future-min-depth">&ndash;</strong></article>
+            <article><span>Deepest depth</span><strong id="future-max-depth">&ndash;</strong></article>
+          </div>
+
+          <div class="future-table-wrap">
+            <table class="future-table">
+              <thead>
+                <tr>
+                  <th>Origin time (UTC)</th>
+                  <th>Magnitude</th>
+                  <th>Depth (km)</th>
+                  <th>Location</th>
+                  <th>ID</th>
+                </tr>
+              </thead>
+              <tbody id="future-table-body"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <span>Turkey Ground-Motion Model</span>
+    <span>Expandable earthquake catalogue · separate from placement results</span>
+  </footer>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+  <script src="./future.js?v=20260906-1"></script>
+</body>
+</html>

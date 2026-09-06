@@ -6,10 +6,10 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <title>Turkey Ground-Motion Explorer</title>
+  <title>Depth Uncertainty Research Dashboard</title>
   <meta
     name="description"
-    content="Interactive receiver-level PGA, structural-loss and Vs30 views for the Turkey ground-motion project."
+    content="Fixed placement-research dashboard for validated earthquake depth, Vs30, PGA and structural-loss results."
   >
 
   <link
@@ -19,35 +19,44 @@
     crossorigin=""
   >
   <link rel="stylesheet" href="./dashboard.css?v=20260903-2">
+  <link rel="stylesheet" href="./scope.css?v=20260906-1">
 </head>
-<body>
+<body data-dashboard-scope="research">
   <header class="site-header">
     <div>
-      <p class="eyebrow">Interactive project explorer</p>
-      <h1>Turkey Ground-Motion Explorer</h1>
+      <p class="eyebrow">Placement research dashboard</p>
+      <h1>Depth Uncertainty Research Dashboard</h1>
       <p class="subtitle">
-        Compare earthquake depth sources and inspect validated PGA, Vs30 and
-        structural-loss values across 311 production receivers.
+        Fixed, validated placement data only: compare gWFM, ISC-EHB and gCMT
+        depths and inspect Vs30, PGA and structural-loss results across the
+        311 production receivers.
       </p>
     </div>
-    <a
-      class="repo-link"
-      href="https://github.com/IbaadGEO/turkey-ground-motion-risk-model"
-      target="_blank"
-      rel="noreferrer"
-    >
-      View repository
-    </a>
+    <div class="header-actions">
+      <a class="repo-link scope-link" href="./future.html">Expandable earthquake dashboard</a>
+      <a
+        class="repo-link"
+        href="https://github.com/IbaadGEO/turkey-ground-motion-risk-model"
+        target="_blank"
+        rel="noreferrer"
+      >View repository</a>
+    </div>
   </header>
 
-  <div id="loading-banner" class="loading-banner" role="status">
-    Loading dashboard data&hellip;
-  </div>
+  <section class="scope-banner research-banner" aria-label="Research dashboard scope">
+    <strong>Research scope:</strong>
+    this page is restricted to the fixed placement dataset and validated
+    model outputs. It does not load live earthquake feeds, GEM province exposure,
+    or OpenStreetMap building data.
+  </section>
 
+  <div id="loading-banner" class="loading-banner" role="status">
+    Loading validated research data&hellip;
+  </div>
   <div id="error-banner" class="error-banner" role="alert" hidden></div>
 
   <main class="dashboard-shell">
-    <aside class="control-panel" aria-label="Dashboard controls">
+    <aside class="control-panel" aria-label="Research dashboard controls">
       <section class="panel-section">
         <h2>Choose scenario</h2>
 
@@ -86,42 +95,6 @@
           </div>
         </fieldset>
 
-        <fieldset class="layer-fieldset exposure-fieldset">
-          <legend>Exposure overlay</legend>
-          <div class="exposure-control">
-            <label>
-              <input type="radio" name="exposure" value="none" checked>
-              <span>None</span>
-            </label>
-            <label>
-              <input type="radio" name="exposure" value="gem">
-              <span>GEM province exposure</span>
-            </label>
-            <label>
-              <input type="radio" name="exposure" value="elazig">
-              <span>Elazığ buildings</span>
-            </label>
-          </div>
-        </fieldset>
-
-        <div id="exposure-metric-control" class="exposure-metric-control" hidden>
-          <label for="exposure-metric">GEM exposure metric</label>
-          <select id="exposure-metric">
-            <option value="TOTAL">Total buildings</option>
-            <option value="RES">Residential buildings</option>
-            <option value="COM">Commercial buildings</option>
-            <option value="IND">Industrial buildings</option>
-          </select>
-        </div>
-
-        <p id="exposure-status" class="exposure-status" role="status">
-          Exposure overlay off
-        </p>
-
-        <button id="fit-elazig" class="secondary-button exposure-button" type="button" hidden>
-          Zoom to Elazığ pilot
-        </button>
-
         <label class="checkbox-row map-toggle">
           <input id="show-events" type="checkbox">
           <span>Show all earthquake locations</span>
@@ -151,7 +124,9 @@
           <h2 id="map-heading" class="visually-hidden">Receiver map</h2>
           <div id="map" aria-label="Interactive receiver map of Turkey"></div>
           <div id="map-legend" class="map-legend" aria-live="polite"></div>
-          <div id="exposure-legend" class="exposure-legend" aria-live="polite" hidden></div>
+          <div class="research-extension-placeholder" hidden>
+            <div id="exposure-legend" class="exposure-legend" aria-live="polite" hidden></div>
+          </div>
         </section>
 
         <aside class="event-card" aria-live="polite">
@@ -219,58 +194,9 @@
             <div id="source-availability" class="availability-row"></div>
           </details>
 
-          <a id="share-link" class="share-link" href="#">Share this view</a>
+          <a id="share-link" class="share-link" href="#">Share this research view</a>
         </aside>
       </div>
-
-      <section id="exposure-panel" class="exposure-card" aria-live="polite" hidden>
-        <div class="section-heading exposure-heading">
-          <div>
-            <p class="eyebrow">Separate descriptive dataset</p>
-            <h2 id="exposure-panel-title">Exposure context</h2>
-          </div>
-          <p id="exposure-panel-summary"></p>
-        </div>
-
-        <div class="exposure-grid">
-          <article id="elazig-context-card" class="exposure-context-card">
-            <h3>Elazığ province exposure context</h3>
-            <p class="context-kicker">GEM Adm1 aggregate · TR-23</p>
-            <dl class="exposure-counts">
-              <div><dt>Residential</dt><dd id="elazig-res">&ndash;</dd></div>
-              <div><dt>Commercial</dt><dd id="elazig-com">&ndash;</dd></div>
-              <div><dt>Industrial</dt><dd id="elazig-ind">&ndash;</dd></div>
-            </dl>
-            <p class="panel-note">These values describe Elazığ province, not only Elazığ city.</p>
-          </article>
-
-          <article id="building-stock-card" class="building-stock-card">
-            <h3>Türkiye building stock</h3>
-            <p id="building-stock-intro"></p>
-            <div id="macro-stock-list" class="stock-list"></div>
-            <details id="taxonomy-details" class="more-details">
-              <summary>More details</summary>
-              <div id="taxonomy-top-list" class="taxonomy-top-list"></div>
-              <a href="./data/exposure/gem_turkiye_taxonomy.json">Inspect the complete GEM taxonomy summary</a>
-            </details>
-          </article>
-
-          <article id="osm-pilot-card" class="osm-pilot-card" hidden>
-            <h3>Mapped building footprints</h3>
-            <p id="osm-pilot-summary"></p>
-            <dl class="exposure-counts">
-              <div><dt>Footprints</dt><dd id="osm-building-count">&ndash;</dd></div>
-              <div><dt>Current rendering</dt><dd id="osm-render-mode">&ndash;</dd></div>
-              <div><dt>Vulnerability class</dt><dd>Not assigned</dd></div>
-            </dl>
-            <p class="osm-attribution">
-              Building data
-              <a href="https://www.openstreetmap.org/copyright">© OpenStreetMap contributors</a>
-              · ODbL 1.0
-            </p>
-          </article>
-        </div>
-      </section>
 
       <section class="chart-section">
         <div class="section-heading">
@@ -280,7 +206,8 @@
           </div>
           <p>
             Maximum is the highest modelled value among 311 receivers. Mean is
-            the arithmetic mean across all 311 receivers. Missing depths remain blank.
+            the arithmetic mean across all 311 receivers. Missing catalogue
+            depths remain blank.
           </p>
         </div>
 
@@ -302,18 +229,18 @@
 
       <section class="science-card">
         <div class="science-heading">
-          <p class="eyebrow">Hazard, model locations and vulnerability</p>
+          <p class="eyebrow">Fixed placement-model workflow</p>
           <h2>What the current result represents</h2>
         </div>
 
         <ol class="risk-flow" aria-label="Current model integration">
+          <li><strong>Depth source</strong><span>gWFM / ISC-EHB / gCMT</span></li>
           <li><strong>Hazard</strong><span>PGA at receiver</span></li>
           <li><strong>Model locations</strong><span>311 receiver sites</span></li>
-          <li><strong>Vulnerability</strong><span>One GEM residential function</span></li>
-          <li><strong>Model output</strong><span>Mean structural loss ratio</span></li>
+          <li><strong>Model output</strong><span>Structural loss ratio</span></li>
         </ol>
 
-        <div class="science-columns">
+        <div class="science-columns research-science-columns">
           <div>
             <h3>Current validated model</h3>
             <p>
@@ -323,25 +250,73 @@
               <strong id="vulnerability-count">&ndash;</strong> coded functions,
               but only this one is used in the production output.
             </p>
-            <a href="./data/vulnerability_functions.json">Inspect exported GEM metadata</a>
+            <a href="./data/vulnerability_functions.json">Inspect exported GEM vulnerability metadata</a>
           </div>
           <div>
-            <h3>Exposure context</h3>
+            <h3>Scope boundary</h3>
             <p>
-              GEM shows province-level aggregate building stock. OpenStreetMap
-              shows mapped footprints intersecting a fixed Elazığ urban pilot query box.
-              Neither exposure layer changes the 311-receiver model output.
+              This dashboard stops at the validated receiver-level placement
+              outputs. New earthquake feeds, province exposure, building
+              footprints and unvalidated building-level calculations are kept
+              outside this research view.
             </p>
-            <span class="status-pill">Individual-building vulnerability not assigned</span>
+            <span class="status-pill">Fixed research dataset</span>
           </div>
         </div>
       </section>
     </section>
   </main>
 
+  <!--
+    Compatibility placeholders retain the existing dashboard.js contract while
+    the research interface keeps all exposure extensions inaccessible. The
+    active research view always starts with exposure=none and does not expose
+    controls for GEM province or OSM building layers.
+  -->
+  <section class="research-extension-placeholder" hidden aria-hidden="true">
+    <fieldset>
+      <legend>Exposure overlay</legend>
+      <label><input type="radio" name="exposure" value="none" checked>None</label>
+      <label><input type="radio" name="exposure" value="gem">GEM province exposure</label>
+      <label><input type="radio" name="exposure" value="elazig">Elazığ buildings</label>
+    </fieldset>
+    <div id="exposure-metric-control" hidden>
+      <label for="exposure-metric">GEM exposure metric</label>
+      <select id="exposure-metric">
+        <option value="TOTAL">Total buildings</option>
+        <option value="RES">Residential buildings</option>
+        <option value="COM">Commercial buildings</option>
+        <option value="IND">Industrial buildings</option>
+      </select>
+    </div>
+    <p id="exposure-status">Exposure overlay off</p>
+    <button id="fit-elazig" type="button">Zoom to Elazığ pilot</button>
+
+    <section id="exposure-panel" hidden>
+      <h2 id="exposure-panel-title">Exposure context</h2>
+      <p id="exposure-panel-summary"></p>
+      <article id="elazig-context-card">
+        <span id="elazig-res"></span><span id="elazig-com"></span><span id="elazig-ind"></span>
+      </article>
+      <article id="building-stock-card">
+        <p id="building-stock-intro"></p>
+        <div id="macro-stock-list"></div>
+        <div id="taxonomy-top-list"></div>
+      </article>
+      <article id="osm-pilot-card" hidden>
+        <p id="osm-pilot-summary"></p>
+        <span id="osm-building-count"></span><span id="osm-render-mode"></span>
+        <span>Vulnerability class</span><span>Not assigned</span>
+      </article>
+    </section>
+    <p>GEM shows province-level aggregate building stock.</p>
+    <p>Neither exposure layer changes the 311-receiver model output.</p>
+    <p>Individual-building vulnerability not assigned.</p>
+  </section>
+
   <footer>
     <span>Turkey Ground-Motion Model</span>
-    <span>Interactive dashboard v2 · exposure pilot</span>
+    <span>Interactive dashboard v2 · research-only view</span>
   </footer>
 
   <script
@@ -351,6 +326,12 @@
   ></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <script>
+    // Keep the research dashboard fixed to its validated placement scope.
+    const researchUrl = new URL(window.location.href);
+    researchUrl.searchParams.delete("exposure");
+    window.history.replaceState({}, "", researchUrl);
+  </script>
   <script src="./dashboard.js?v=20260903-2"></script>
 </body>
 </html>

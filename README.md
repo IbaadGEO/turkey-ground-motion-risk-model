@@ -14,27 +14,83 @@ For each valid earthquake depth and location, the program calculates PGA, PGV,
 SA(0.2 s) and SA(1.0 s). PGA is then used with a GEM residential structural
 vulnerability curve to estimate a mean structural loss ratio between 0 and 1.
 
-## Interactive visualisation
+## Interactive dashboards
 
-This GitHub repository is the primary project record for the scientific
-methodology, source data, code, tests and derived outputs.
+The GitHub Pages interface is deliberately split into two separate dashboards
+with different scientific scopes. This prevents new or exploratory data from
+being mixed with the fixed placement analysis.
 
-An optional browser-based dashboard is also available for visually exploring
-the Turkey boundary, earthquake locations, the 50 km Vs30 receiver grid and
-receiver-level PGA and structural-loss fields for each valid catalogue depth:
+### 1. Research Dashboard
 
-**[Open the interactive dashboard](https://ibaadgeo.github.io/turkey-ground-motion-risk-model/)**
+**[Open the Research Dashboard](https://ibaadgeo.github.io/turkey-ground-motion-risk-model/)**
 
-Dashboard Version 2 loads only the selected event/depth receiver file, presents
-maximum and mean PGA/loss values, and keeps Vs30, PGA and structural-loss map
-legends specific to the active layer. An optional, separate exposure control
-adds aggregate GEM province data or a small OpenStreetMap building-footprint
-pilot for Elazığ. These overlays do not change the 311-receiver calculations,
-and no OSM footprint has been assigned a GEM vulnerability class or
-building-level loss. The dashboard remains a visual companion to the
-repository and does not rerun the GMPE or vulnerability calculations in the
-browser.
+This is the primary dashboard for the placement project. It contains only the
+validated data and model outputs used to investigate how earthquake-depth
+uncertainty propagates through ground-motion and structural-loss estimates.
 
+The Research Dashboard uses:
+
+- 117 selected earthquakes from the gWFM v1.2 catalogue;
+- gWFM, ISC-EHB and Global CMT depths where available;
+- the 90 earthquakes common to all three depth sources through the common-event filter;
+- 311 production Vs30 receiver locations;
+- 321 valid earthquake/depth scenarios;
+- receiver-level Vs30, PGA and structural-loss results;
+- maximum, mean and median scenario metrics; and
+- depth-source comparison charts.
+
+The Research Dashboard uses a fixed, validated placement dataset. It does not
+load recent earthquake feeds, GEM province exposure, OpenStreetMap building
+footprints, building clusters or other exploratory datasets.
+
+The browser does not rerun the GMPE or vulnerability calculations. It loads
+compact per-scenario files generated from the validated Python model outputs.
+
+### 2. Expandable Earthquake Dashboard
+
+**[Open the Expandable Earthquake Dashboard](https://ibaadgeo.github.io/turkey-ground-motion-risk-model/future.html)**
+
+This is a separate development extension intended for earthquake data that can
+change or be added over time without modifying the fixed placement results.
+
+The current version queries the USGS FDSN Event Web Service for recent
+earthquakes in the Türkiye region. It supports:
+
+- 7, 30 and 90 day catalogue windows;
+- magnitude thresholds from M2.5+ to M5+;
+- event origin time;
+- magnitude;
+- catalogue depth;
+- coordinates;
+- location description;
+- USGS event identifier and review status; and
+- links to the USGS source event records.
+
+The Expandable Dashboard currently displays catalogue information only.
+
+It does not yet calculate project-model PGA, sample the project Vs30 grid,
+assign GEM vulnerability functions or calculate structural loss for newly
+retrieved earthquakes. Those functions should only be added after extending
+and validating the scientific Python workflow.
+
+### Dashboard scope comparison
+
+| Aspect | Research Dashboard | Expandable Earthquake Dashboard |
+| --- | --- | --- |
+| Main purpose | Placement depth-uncertainty analysis | New and updateable earthquake data |
+| Scientific status | Validated placement results | Separate development extension |
+| Event dataset | Fixed 117 selected gWFM earthquakes | Recent USGS catalogue events |
+| Depth information | gWFM, ISC-EHB and Global CMT | USGS catalogue depth |
+| Common-event analysis | 90 three-source earthquakes | Not applicable |
+| Receiver grid | 311 production receivers | Not currently used |
+| Vs30 | Validated production values | Not currently modelled |
+| PGA | Validated receiver-level output | Not currently calculated |
+| Structural loss | Validated receiver-level output | Not currently calculated |
+| Data behaviour | Fixed and reproducible | Refreshable and extendable |
+| GEM/OSM exposure | Not part of active dashboard | Retained separately for future development |
+
+The two dashboards are linked for convenience, but their datasets and
+scientific claims remain separate.
 ## Python setup
 
 The project has been tested on Windows with Python 3.13.7. A Python 3.12
@@ -112,7 +168,7 @@ live during the calculation.
 
 Reference:
 
-Ekström, G., Nettles, M. & Dziewoński, A. M. (2012). *The global CMT project
+EkstrÃ¶m, G., Nettles, M. & DziewoÅ„ski, A. M. (2012). *The global CMT project
 2004-2010: Centroid-moment tensors for 13,017 earthquakes*. Physics of the
 Earth and Planetary Interiors, 200-201, 1-9.
 <https://doi.org/10.1016/j.pepi.2012.04.002>
@@ -130,7 +186,7 @@ here to calculate PGA, PGV, SA(0.2 s) and SA(1.0 s).
 
 Reference:
 
-Akkar, S., Sandıkkaya, M. A. & Bommer, J. J. (2014). *Empirical ground-motion
+Akkar, S., SandÄ±kkaya, M. A. & Bommer, J. J. (2014). *Empirical ground-motion
 models for point- and extended-source crustal earthquake scenarios in Europe
 and the Middle East*. Bulletin of Earthquake Engineering, 12, 359-387.
 <https://doi.org/10.1007/s10518-013-9461-4>
@@ -148,7 +204,7 @@ Software implementation:
 
 ### Vs30 site-condition data
 
-Vs30 is taken from the Türkiye-specific `TRVs30_GeoM` model.
+Vs30 is taken from the TÃ¼rkiye-specific `TRVs30_GeoM` model.
 
 Production input:
 
@@ -168,14 +224,14 @@ Higher-resolution validation:
 
 Dataset:
 
-Okay, H. B. & Özacar, A. A. (2023). *TRVs30_GeoM - Türkiye Vs30 Model by
+Okay, H. B. & Ã–zacar, A. A. (2023). *TRVs30_GeoM - TÃ¼rkiye Vs30 Model by
 Geological Engineering Department of METU*. Zenodo.
 <https://doi.org/10.5281/zenodo.10149864>
 
 Research paper:
 
-Okay, H. B. & Özacar, A. A. (2024). *A Novel VS30 Prediction Strategy Taking
-Fluid Saturation into Account and a New VS30 Model of Türkiye*. Bulletin of
+Okay, H. B. & Ã–zacar, A. A. (2024). *A Novel VS30 Prediction Strategy Taking
+Fluid Saturation into Account and a New VS30 Model of TÃ¼rkiye*. Bulletin of
 the Seismological Society of America, 114(2), 1048-1065.
 <https://doi.org/10.1785/0120230032>
 
@@ -221,10 +277,12 @@ structural vulnerability*. Bulletin of Earthquake Engineering.
 GEM source repository:
 <https://github.com/gem/global_vulnerability_model/tree/v2026.0.0>
 
-### Dashboard exposure datasets
+### Retained exploratory exposure datasets
+
+The GEM and OpenStreetMap exposure files below are retained as exploratory development material. They are not part of the active Research Dashboard and are not currently used by the Expandable Earthquake Dashboard.
 
 The optional dashboard exposure overlay uses only the open aggregate summaries
-from the GEM Global Exposure Model v2026.0.0 Türkiye directory:
+from the GEM Global Exposure Model v2026.0.0 TÃ¼rkiye directory:
 
 - `Exposure_Summary_Adm0.csv`;
 - `Exposure_Summary_Adm1.csv`; and
@@ -236,11 +294,11 @@ The GEM material is licensed CC BY-NC-SA 4.0 and uses GEM Building Taxonomy
 v4.0. The restricted/full 1 km exposure model is not downloaded or used.
 
 `prepare_gem_exposure_dashboard.py` validates the source schema, the 81 unique
-Adm1 provinces, RES/COM/IND values, the `TR-23` Elazığ record and the one-to-one
+Adm1 provinces, RES/COM/IND values, the `TR-23` ElazÄ±ÄŸ record and the one-to-one
 boundary join. It exports static JSON and a simplified WGS84 GeoJSON under
 `docs/data/exposure/`; the browser never fetches GEM GitHub at runtime.
 
-The province geometry is the simplified geoBoundaries gbOpen Türkiye ADM1
+The province geometry is the simplified geoBoundaries gbOpen TÃ¼rkiye ADM1
 dataset pinned to source commit `9469f09`. GEM's country README documents the
 boundary source as GeoBoundaries under CC BY 4.0. The exact GeoBoundaries API
 record used for the file identifies an OpenStreetMap-derived source and reports
@@ -249,10 +307,10 @@ metadata rather than silently replacing one with the other.
 
 `prepare_elazig_osm_dashboard.py` performs a documented one-time Overpass
 extraction of closed, building-tagged OpenStreetMap ways intersecting a fixed central
-Elazığ pilot box (`38.66, 39.18, 38.69, 39.23`). The box is not an official city
+ElazÄ±ÄŸ pilot box (`38.66, 39.18, 38.69, 39.23`). The box is not an official city
 or administrative boundary. The resulting footprints and precomputed clusters
 are static; the live dashboard does not query Overpass. OSM data are available
-under ODbL 1.0 with attribution `© OpenStreetMap contributors`.
+under ODbL 1.0 with attribution `Â© OpenStreetMap contributors`.
 
 GEM Adm1 values are aggregate province exposure. OSM footprints are mapped
 geometry rather than a complete structural inventory. OSM tags have not been
@@ -276,7 +334,7 @@ Source:
 The boundary is used for geographic clipping and visualisation rather than as
 an earthquake or ground-motion input.
 
-### 2020 Elazığ-Sivrice case-study inputs
+### 2020 ElazÄ±ÄŸ-Sivrice case-study inputs
 
 The separate case-study workflow in `elazig_sivrice_depth_analysis.py` uses:
 
@@ -308,7 +366,7 @@ sources:
 - ground-motion and structural-loss result CSVs;
 - depth-sensitivity summaries;
 - catalogue-distribution summaries;
-- Elazığ-Sivrice case-study CSVs; and
+- ElazÄ±ÄŸ-Sivrice case-study CSVs; and
 - all figures under `outputs_gwfm/`.
 
 These files should be traced back to the source datasets and references above
@@ -345,7 +403,7 @@ without changing the numerical analysis, run:
 python presentation_figures.py
 ```
 
-To run the separate 24 January 2020 Mww 6.7 Elazığ-Sivrice presentation example,
+To run the separate 24 January 2020 Mww 6.7 ElazÄ±ÄŸ-Sivrice presentation example,
 case-study earthquake selected by Iris from the waveform dataset,
 including its PGA-depth figure, loss-difference map and exact GEM
 vulnerability curve, run:
@@ -465,7 +523,7 @@ as independent earthquake samples. A short explanation of the sampling,
 boxplot settings and axes is in
 [`docs/CATALOGUE_BOXPLOT_WALKTHROUGH.md`](docs/CATALOGUE_BOXPLOT_WALKTHROUGH.md).
 
-Presentation-specific Elazığ-Sivrice event outputs are saved in
+Presentation-specific ElazÄ±ÄŸ-Sivrice event outputs are saved in
 `outputs_gwfm/elazig_sivrice_analysis`:
 
 - `elazig_sivrice_complete_results.csv`: all 3 depth scenarios across 311 receivers;
@@ -523,7 +581,7 @@ The 99,831-row complete CSV is a generated output and is ignored by Git. The
 - Structural loss ratios are not insured or monetary loss estimates.
 - GEM dashboard exposure is an aggregate province context layer, not individual
   building locations.
-- The Elazığ OSM pilot is descriptive mapped geometry intersecting a fixed query
+- The ElazÄ±ÄŸ OSM pilot is descriptive mapped geometry intersecting a fixed query
   box; it is not a complete city or province inventory.
 - No OSM tag has been mapped to GEM taxonomy and no building-level PGA or
   structural loss has been calculated.

@@ -1,103 +1,649 @@
-# Turkey Ground-Motion Model
+# Earthquake Depth Uncertainty and Ground-Motion Sensitivity in Türkiye
 
-This project calculates earthquake ground motion across a 50 km grid of 311
-locations in Turkey. Each location has its own Vs30 value.
+## NERC Research Experience Placement, Summer 2026
 
-It uses 117 selected earthquakes from the gWFM v1.2 catalogue. Where available,
-each earthquake is calculated using three different depth sources:
+## Project overview
 
-- waveform depth;
-- ISC-EHB depth; and
-- Global CMT depth.
+This repository contains the scientific work completed during my NERC Research
+Experience Placement in the Department of Earth Sciences at the University of
+Cambridge.
 
-For each valid earthquake depth and location, the program calculates PGA, PGV,
-SA(0.2 s) and SA(1.0 s). PGA is then used with a GEM residential structural
-vulnerability curve to estimate a mean structural loss ratio between 0 and 1.
+The original placement project was titled:
 
-## Interactive dashboards
+**Investigating how the depth uncertainty propagates through probabilistic
+seismic hazard models**
 
-The GitHub Pages interface is deliberately split into two separate dashboards
-with different scientific scopes. This prevents new or exploratory data from
-being mixed with the fixed placement analysis.
+The project was motivated by the fact that automatically generated earthquake
+catalogues can poorly constrain source depth, while waveform modelling can
+provide more accurately constrained depths. Differences between these depth
+estimates can exceed 10 km and may affect hazard calculations because source
+depth changes source-to-receiver distance and therefore predicted ground
+shaking.
 
-### 1. Research Dashboard
+The original brief focused on assessing how improved earthquake-depth estimates
+influence hazard calculations in Türkiye. The work implemented in this
+repository addresses that question through a reproducible ground-motion and
+depth-sensitivity workflow using catalogue comparisons, Vs30 site conditions,
+structural vulnerability calculations, case-study analysis and validation
+tests.
 
-**[Open the Research Dashboard](https://ibaadgeo.github.io/turkey-ground-motion-risk-model/)**
+The central question investigated here is:
 
-This is the primary dashboard for the placement project. It contains only the
-validated data and model outputs used to investigate how earthquake-depth
-uncertainty propagates through ground-motion and structural-loss estimates.
+> **How does uncertainty in earthquake depth affect predicted ground motion,
+> and how does that effect propagate into a structural-loss estimate?**
 
-The Research Dashboard uses:
+The scripts, datasets, numerical outputs and figures are the main products of
+the placement work.
 
-- 117 selected earthquakes from the gWFM v1.2 catalogue;
-- gWFM, ISC-EHB and Global CMT depths where available;
-- the 90 earthquakes common to all three depth sources through the common-event filter;
-- 311 production Vs30 receiver locations;
-- 321 valid earthquake/depth scenarios;
-- receiver-level Vs30, PGA and structural-loss results;
-- maximum, mean and median scenario metrics; and
-- depth-source comparison charts.
+---
 
-The Research Dashboard uses a fixed, validated placement dataset. It does not
-load recent earthquake feeds, GEM province exposure, OpenStreetMap building
-footprints, building clusters or other exploratory datasets.
+## Main project workflow
 
-The browser does not rerun the GMPE or vulnerability calculations. It loads
-compact per-scenario files generated from the validated Python model outputs.
+The scientific workflow is:
 
-### 2. Expandable Earthquake Dashboard
+1. collect and clean earthquake catalogue data;
+2. identify earthquakes with alternative depth estimates;
+3. compare gWFM, ISC-EHB and Global CMT depths;
+4. create a national receiver grid across Türkiye;
+5. assign a Vs30 value to each receiver;
+6. calculate epicentral and hypocentral distances;
+7. calculate ground motion for each event, depth source and receiver;
+8. calculate structural-loss ratios from PGA;
+9. compare results while changing only the assumed earthquake depth;
+10. analyse how sensitivity changes with epicentral distance;
+11. test the behaviour on the 2020 Elazığ-Sivrice earthquake;
+12. validate the production Vs30 sampling against a higher-resolution raster;
+13. generate numerical outputs and presentation figures.
 
-**[Open the Expandable Earthquake Dashboard](https://ibaadgeo.github.io/turkey-ground-motion-risk-model/future.html)**
+---
 
-This is a separate development extension intended for earthquake data that can
-change or be added over time without modifying the fixed placement results.
+## Production dataset
 
-The current version queries the USGS FDSN Event Web Service for recent
-earthquakes in the Türkiye region. It supports:
+The final production workflow contains:
 
-- 7, 30 and 90 day catalogue windows;
-- magnitude thresholds from M2.5+ to M5+;
-- event origin time;
-- magnitude;
-- catalogue depth;
-- coordinates;
-- location description;
-- USGS event identifier and review status; and
-- links to the USGS source event records.
+- **117 selected gWFM earthquakes**
+- **110 earthquakes with ISC-EHB depths**
+- **94 earthquakes with Global CMT depths**
+- **90 earthquakes common to all three depth sources**
+- **311 production receiver locations**
+- **321 valid earthquake/depth scenarios**
+- **99,831 earthquake-depth-receiver combinations**
 
-The Expandable Dashboard currently displays catalogue information only.
+The 90 common events form the balanced dataset used for the main
+three-catalogue comparison.
 
-It does not yet calculate project-model PGA, sample the project Vs30 grid,
-assign GEM vulnerability functions or calculate structural loss for newly
-retrieved earthquakes. Those functions should only be added after extending
-and validating the scientific Python workflow.
+The waveform-modelled gWFM depth is used as the reference depth in the paired
+sensitivity analysis.
 
-### Dashboard scope comparison
+---
 
-| Aspect | Research Dashboard | Expandable Earthquake Dashboard |
-| --- | --- | --- |
-| Main purpose | Placement depth-uncertainty analysis | New and updateable earthquake data |
-| Scientific status | Validated placement results | Separate development extension |
-| Event dataset | Fixed 117 selected gWFM earthquakes | Recent USGS catalogue events |
-| Depth information | gWFM, ISC-EHB and Global CMT | USGS catalogue depth |
-| Common-event analysis | 90 three-source earthquakes | Not applicable |
-| Receiver grid | 311 production receivers | Not currently used |
-| Vs30 | Validated production values | Not currently modelled |
-| PGA | Validated receiver-level output | Not currently calculated |
-| Structural loss | Validated receiver-level output | Not currently calculated |
-| Data behaviour | Fixed and reproducible | Refreshable and extendable |
-| GEM/OSM exposure | Not part of active dashboard | Retained separately for future development |
+## Earthquake depth sources
 
-The two dashboards are linked for convenience, but their datasets and
-scientific claims remain separate.
-## Python setup
+### gWFM
 
-The project has been tested on Windows with Python 3.13.7. A Python 3.12
-requirements file is also retained for reproducibility.
+The primary earthquake dataset is the Global Waveform-Modelled Earthquake
+Catalogue, gWFM v1.2.
 
-Create and activate a virtual environment, upgrade `pip`, then install the
-requirements for the Python version being used:
+Production files:
+
+- `data/gwfm_v1_2_clean.csv`
+- `data/gwfm_117_event_selection.csv`
+
+The waveform-modelled depths are used as the baseline for the main sensitivity
+analysis.
+
+Reference:
+
+Wimpenny, S. & Watson, C. S. (2021). *gWFM: A Global Catalog of
+Moderate-Magnitude Earthquakes Studied Using Teleseismic Body Waves*.
+Seismological Research Letters, 92(1), 212-226.
+
+<https://doi.org/10.1785/0220200218>
+
+### ISC-EHB
+
+ISC-EHB provides an alternative earthquake-depth estimate.
+
+The ISC-EHB values used in this project are the depth fields carried in the
+gWFM v1.2 input rather than depths downloaded through a live catalogue query.
+
+Reference:
+
+Weston, J., Engdahl, E. R., Harris, J., Di Giacomo, D. & Storchak, D. A.
+(2018). *ISC-EHB: Reconstruction of a robust earthquake dataset*.
+Geophysical Journal International, 214(1), 474-484.
+
+<https://doi.org/10.1093/gji/ggy155>
+
+### Global CMT
+
+Global CMT provides the third depth source used in the comparison.
+
+These values are also taken from the gWFM v1.2 input.
+
+Reference:
+
+Ekström, G., Nettles, M. & Dziewoński, A. M. (2012).
+*The global CMT project 2004-2010: Centroid-moment tensors for 13,017
+earthquakes*. Physics of the Earth and Planetary Interiors, 200-201, 1-9.
+
+<https://doi.org/10.1016/j.pepi.2012.04.002>
+
+---
+
+## Catalogue depth comparison
+
+The main catalogue comparison uses the **90 earthquakes for which all three
+depth sources are available**.
+
+### gWFM
+
+- Q1: **9 km**
+- median: **13 km**
+- Q3: **33.25 km**
+- IQR: **24.25 km**
+- maximum: **162 km**
+
+### ISC-EHB
+
+- Q1: **10 km**
+- median: **17 km**
+- Q3: **39 km**
+- IQR: **29 km**
+- maximum: **162 km**
+
+### Global CMT
+
+- Q1: **15 km**
+- median: **15 km**
+- Q3: **32.75 km**
+- IQR: **17.75 km**
+- maximum: **151 km**
+
+The comparison shows that the depth supplied to a ground-motion model can vary
+substantially depending on the earthquake catalogue used.
+
+---
+
+## Receiver grid and Vs30
+
+The production model evaluates ground motion at **311 receiver locations**
+distributed across Türkiye on an approximately 50 km grid.
+
+Production files:
+
+- `data/turkey_50km_land_grid.csv`
+- `data/turkey_50km_land_grid_vs30.csv`
+
+Each receiver is assigned a Vs30 value from the Türkiye-specific
+`TRVs30_GeoM` dataset.
+
+The production input uses:
+
+`TRVs30GeoM_9Arcsec.tif`
+
+Of the 311 production receivers:
+
+- **304** use a direct valid raster sample;
+- **7** use the nearest valid Vs30 value within the permitted fallback distance.
+
+The large source raster is kept locally and is not stored in Git.
+
+Dataset:
+
+Okay, H. B. & Özacar, A. A. (2023).
+*TRVs30_GeoM - Türkiye Vs30 Model by Geological Engineering Department of
+METU*.
+
+<https://doi.org/10.5281/zenodo.10149864>
+
+---
+
+## How earthquake depth enters the model
+
+For each earthquake and receiver, epicentral distance is combined with source
+depth to calculate hypocentral distance:
+
+```text
+Rhyp = sqrt(Repi^2 + depth^2)
+```
+
+where:
+
+- `Repi` is epicentral distance;
+- `depth` is earthquake source depth;
+- `Rhyp` is hypocentral distance.
+
+In the current ground-motion implementation, earthquake depth affects the
+prediction through `Rhyp`.
+
+This explains why depth uncertainty has its strongest influence close to the
+earthquake. At short epicentral distances, a change of several kilometres in
+depth forms a relatively large part of the total source-to-receiver distance.
+
+---
+
+## Ground-motion model
+
+Ground motion is calculated using the hypocentral-distance form of the
+Akkar, Sandıkkaya and Bommer model implemented in OpenQuake HazardLib as:
+
+`AkkarEtAlRhyp2014`
+
+The model receives:
+
+- earthquake magnitude;
+- rake;
+- Vs30;
+- hypocentral distance.
+
+The workflow calculates:
+
+- PGA;
+- PGV;
+- SA(0.2 s);
+- SA(1.0 s).
+
+PGA is the main intensity measure used in the depth-sensitivity analysis.
+
+Reference:
+
+Akkar, S., Sandıkkaya, M. A. & Bommer, J. J. (2014).
+*Empirical ground-motion models for point- and extended-source crustal
+earthquake scenarios in Europe and the Middle East*.
+Bulletin of Earthquake Engineering, 12, 359-387.
+
+<https://doi.org/10.1007/s10518-013-9461-4>
+
+Source depths above 30 km and source-receiver distances above 200 km are
+retained in the calculations but flagged because they fall outside the main
+stated applicability range of the model.
+
+---
+
+## Structural vulnerability calculation
+
+PGA is also propagated through one structural vulnerability function from the
+GEM Global Seismic Vulnerability Model v2026.0.0.
+
+Selected function:
+
+`MUR+CLBRS/LWAL/CDN+ERN/H:1/RES`
+
+Input file:
+
+`data/gem_vulnerability_v2026/vulnerability_structural.xml`
+
+The output is a **mean structural-loss ratio between 0 and 1**.
+
+This calculation is included to examine whether a change in PGA caused by a
+different earthquake depth can propagate into a downstream impact metric.
+
+The calculated value is:
+
+- not insured loss;
+- not monetary loss;
+- not total economic loss;
+- not a building-specific loss estimate.
+
+Reference:
+
+Nafeh, A. M. B., Aljawhari, K. & Silva, V. (2026).
+*Global Seismic Vulnerability Model (v2026.0.0)*.
+
+<https://doi.org/10.5281/zenodo.20730225>
+
+---
+
+## Depth-sensitivity analysis
+
+For the main paired analysis, the earthquake and receiver remain unchanged
+while the depth source is changed.
+
+Signed PGA change is calculated as:
+
+```text
+100 × (PGA_comparison - PGA_gWFM) / PGA_gWFM
+```
+
+A negative value means the comparison depth produces lower PGA than the gWFM
+depth.
+
+A positive value means it produces higher PGA.
+
+Structural-loss change is calculated as:
+
+```text
+loss_comparison - loss_gWFM
+```
+
+and plotted in percentage points.
+
+---
+
+## Distance-dependent sensitivity
+
+The continuous sensitivity figures retain the underlying earthquake-receiver
+pairs.
+
+At each displayed epicentral distance, nearby observations are assigned
+Gaussian weights based on their distance from that x-coordinate.
+
+The bandwidth is **15 km**.
+
+The shaded area is:
+
+```text
+weighted mean ± 1 weighted empirical standard deviation
+```
+
+This represents observed pair-to-pair variability.
+
+It is not:
+
+- a confidence interval;
+- a formal uncertainty interval on the mean;
+- sampled GMPE aleatory uncertainty.
+
+---
+
+## PGA sensitivity results
+
+The strongest systematic depth effect occurs close to the earthquake.
+
+### 0 to 25 km
+
+Global CMT relative to gWFM:
+
+- **85.7% lower PGA**
+- **0% unchanged**
+- **14.3% higher PGA**
+
+ISC-EHB relative to gWFM:
+
+- **64.3% lower PGA**
+- **10.7% unchanged**
+- **25.0% higher PGA**
+
+### Gaussian-weighted mean PGA change
+
+Global CMT relative to gWFM:
+
+- 0 km: **-12.81%**
+- 25 km: **-7.68%**
+- 100 km: **-1.68%**
+- 200 km: **-0.83%**
+
+ISC-EHB relative to gWFM:
+
+- 0 km: **-10.37%**
+- 25 km: **-7.50%**
+- 100 km: **-1.92%**
+- 200 km: **-0.85%**
+
+The systematic PGA influence decreases strongly with increasing epicentral
+distance.
+
+---
+
+## Structural-loss sensitivity results
+
+Structural loss responds less continuously than PGA because relatively small
+PGA changes can map to the same or very similar part of the selected
+vulnerability curve.
+
+### 0 to 25 km
+
+For both Global CMT and ISC-EHB comparisons:
+
+- **21.4% lower structural loss**
+- **71.4% unchanged**
+- **7.1% higher structural loss**
+
+### 0 to 200 km
+
+Global CMT:
+
+- **1465 of 1480 values unchanged**
+- **98.99% unchanged**
+
+ISC-EHB:
+
+- **1466 of 1480 values unchanged**
+- **99.05% unchanged**
+
+The non-zero structural-loss differences are therefore highly concentrated
+near the earthquake source.
+
+---
+
+## 2020 Elazığ-Sivrice case study
+
+A separate event-specific analysis was completed for the:
+
+**24 January 2020 Mww 6.7 Elazığ-Sivrice earthquake**
+
+Parameters used include:
+
+- origin time: `2020-01-24 17:55:13 UTC`
+- latitude: `38.3897`
+- longitude: `39.0883`
+- Wilber3 / USGS depth: **10 km**
+- Global CMT depth: **12 km**
+- separately analysed depth: **14 km**
+
+The 14 km value is the independently analysed case-study depth used for the
+placement comparison and is not presented as a routine catalogue value.
+
+---
+
+## Fine-grid Elazığ tests
+
+The production model uses the national 50 km receiver grid.
+
+To test whether the structural-loss pattern was being hidden by coarse spatial
+sampling, separate 10 km and 20 km grids were also evaluated around the
+Elazığ-Sivrice earthquake.
+
+### 10 km grid
+
+Within 150 km:
+
+- **705 receivers**
+- **19 receivers with a non-zero structural-loss difference**
+- **2.7% changed**
+- **686 unchanged**
+
+### 20 km grid
+
+Within 150 km:
+
+- **176 receivers**
+- **6 receivers with a non-zero structural-loss difference**
+- **3.4% changed**
+- **170 unchanged**
+
+These fine-grid tests show that the structural-loss response remains spatially
+localised even when receiver density is increased.
+
+---
+
+## Vs30 resolution validation
+
+The production model uses the 9-arcsecond TRVs30GeoM raster.
+
+A separate validation workflow samples the native 3-arcsecond raster at the
+same 311 receiver coordinates.
+
+### All 311 receivers
+
+- median signed difference: **0.00 m/s**
+- median absolute difference: **0.52 m/s**
+- mean absolute difference: **5.02 m/s**
+- 95th percentile absolute difference: **20.85 m/s**
+- maximum absolute difference: **139.42 m/s**
+- Pearson correlation: **0.9883**
+- Spearman correlation: **0.9946**
+- **297 of 311** within 25 m/s
+- **304 of 311** within 50 m/s
+
+### Direct-to-direct samples only
+
+For the 304 receivers with direct valid samples in both products:
+
+- mean absolute difference: **3.24 m/s**
+- 95th percentile absolute difference: **16.26 m/s**
+- Pearson correlation: **0.9956**
+- Spearman correlation: **0.9943**
+
+The same seven receiver locations require nearest-valid sampling at both raster
+resolutions.
+
+This supports the interpretation that the fallback behaviour is associated
+with the underlying raster coverage rather than being introduced by the
+production raster resolution.
+
+---
+
+## Main scripts
+
+### `akkar_turkey_portfolio_gwfm.py`
+
+Runs the production ground-motion and structural-loss calculations.
+
+### `depth_sensitivity_analysis.py`
+
+Performs the paired depth-source sensitivity analysis and produces the signed
+PGA and structural-loss results.
+
+### `catalogue_distribution_plots.py`
+
+Creates the catalogue-depth and catalogue-wide PGA/loss comparison figures.
+
+### `presentation_figures.py`
+
+Produces presentation-ready figures from the validated numerical outputs.
+
+### `elazig_sivrice_depth_analysis.py`
+
+Runs the event-specific Elazığ-Sivrice depth analysis and fine-grid
+comparisons.
+
+### `prepare_vs30_grid.py`
+
+Samples the production TRVs30GeoM raster onto the 311-location receiver grid.
+
+### `vs30_raster_comparison.py`
+
+Compares the production Vs30 values with the higher-resolution 3-arcsecond
+raster.
+
+### `build_dashboard_data.py`
+
+Converts already calculated scientific outputs into compact files for the
+optional browser visualisation. It does not perform the GMPE or structural
+vulnerability calculations.
+
+---
+
+## Main numerical outputs
+
+### Complete PGA and structural-loss table
+
+`outputs_gwfm/complete_pga_structural_loss_table.csv`
+
+This contains **99,831 rows**.
+
+Each row represents one:
+
+```text
+earthquake × depth source × receiver
+```
+
+Important fields include:
+
+- `event_id`
+- `depth_source`
+- `source_depth_km`
+- `location_id`
+- `repi_km`
+- `rhypo_km`
+- `median_pga_g`
+- `structural_loss_ratio_mean`
+
+Source totals are:
+
+- waveform: **36,387 rows**
+- ISC-EHB: **34,210 rows**
+- Global CMT: **29,234 rows**
+
+### Earthquake-depth summary
+
+`outputs_gwfm/complete_output/earthquake_depth_pga_loss_summary.csv`
+
+This contains **321 rows**, one for each valid earthquake/depth scenario.
+
+---
+
+## Depth-sensitivity outputs
+
+Stored under:
+
+`outputs_gwfm/depth_sensitivity_analysis/`
+
+Important outputs include:
+
+- `depth_sensitivity_common_events_summary.csv`
+- `depth_sensitivity_all_available_summary.csv`
+- `depth_sensitivity_depth_direction_summary.csv`
+- `depth_sensitivity_depth_direction_by_distance.csv`
+- `depth_sensitivity_common_event_ids.csv`
+- `depth_sensitivity_continuous_summary.csv`
+- `depth_sensitivity_sign_balance.csv`
+- `pga_sensitivity_by_distance.png`
+- `loss_sensitivity_by_distance.png`
+- `catalogue_pga_loss_boxplots.png`
+- `catalogue_boxplot_event_maxima.csv`
+- `catalogue_boxplot_summary.csv`
+
+---
+
+## Elazığ-Sivrice outputs
+
+Stored under:
+
+`outputs_gwfm/elazig_sivrice_analysis/`
+
+Outputs include:
+
+- event results for the tested depth scenarios;
+- depth-summary CSV files;
+- fine-grid receiver results;
+- PGA-versus-depth figures;
+- structural-loss difference maps.
+
+---
+
+## Vs30 validation outputs
+
+Stored under:
+
+`outputs_gwfm/vs30_raster_comparison/`
+
+Outputs include:
+
+- `vs30_full_raster_vs_sampled_receivers.png`
+- `vs30_3arcsec_minus_model_receivers.png`
+- `vs30_3arcsec_receiver_comparison.csv`
+- `vs30_raster_comparison_summary.csv`
+
+---
+
+## Reproducing the workflow
+
+The project has been tested on Windows using Python 3.13.7.
+
+Create the environment:
 
 ```powershell
 python -m venv .venv
@@ -106,487 +652,114 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements-windows-py313.txt
 ```
 
-For Python 3.12, create the environment with `py -3.12 -m venv .venv` and use
-`requirements-windows-py312.txt` instead.
-
-The common dependencies are listed in `requirements.txt`: NumPy, pandas,
-Matplotlib, OpenQuake Engine, rasterio and `affine<3`.
-
-## Project data, software and research sources
-
-This section records the external datasets, project input files, software
-implementations and research papers used directly by the workflow. Papers
-reviewed only as background are not listed as model inputs.
-
-### Earthquake catalogue and depth sources
-
-**Global Waveform-Modelled Earthquake Catalogue (gWFM)**
-
-- Production catalogue: `data/gwfm_v1_2_clean.csv`
-- Selected-event file: `data/gwfm_117_event_selection.csv`
-- Catalogue version: gWFM v1.2
-- Source: COMET Global Waveform Catalogue
-- Catalogue page: <https://comet.nerc.ac.uk/gwfm_catalogue/gWFM_catalogue.html>
-- The project uses 117 selected earthquakes matched uniquely to gWFM.
-- Waveform-modelled depth is the baseline depth in the main sensitivity
-  analysis.
-
-Reference:
-
-Wimpenny, S. & Watson, C. S. (2021). *gWFM: A Global Catalog of
-Moderate-Magnitude Earthquakes Studied Using Teleseismic Body Waves*.
-Seismological Research Letters, 92(1), 212-226.
-<https://doi.org/10.1785/0220200218>
-
-**ISC-EHB depths**
-
-The ISC-EHB values used by this project are the depth fields already carried
-in the gWFM v1.2 input and retained in `data/gwfm_v1_2_clean.csv`; they are not
-downloaded separately during a normal model run.
-
-Key references:
-
-- Engdahl, E. R., van der Hilst, R. & Buland, R. (1998). *Global teleseismic
-  earthquake relocation with improved travel times and procedures for depth
-  determination*. Bulletin of the Seismological Society of America, 88(3),
-  722-743. <https://doi.org/10.1785/BSSA0880030722>
-- Weston, J., Engdahl, E. R., Harris, J., Di Giacomo, D. & Storchak, D. A.
-  (2018). *ISC-EHB: Reconstruction of a robust earthquake dataset*.
-  Geophysical Journal International, 214(1), 474-484.
-  <https://doi.org/10.1093/gji/ggy155>
-- Engdahl, E. R., Di Giacomo, D., Sakarya, B., Gkarlaouni, C. G., Harris, J.
-  & Storchak, D. A. (2020). *ISC-EHB 1964-2016, an improved data set for
-  studies of Earth structure and global seismicity*. Earth and Space Science,
-  7, e2019EA000897. <https://doi.org/10.1029/2019EA000897>
-
-Official ISC-EHB information: <https://isc.ac.uk/isc-ehb/>
-
-**Global CMT depths**
-
-Global CMT values are also taken from the gWFM v1.2 input rather than queried
-live during the calculation.
-
-Reference:
-
-EkstrÃ¶m, G., Nettles, M. & DziewoÅ„ski, A. M. (2012). *The global CMT project
-2004-2010: Centroid-moment tensors for 13,017 earthquakes*. Physics of the
-Earth and Planetary Interiors, 200-201, 1-9.
-<https://doi.org/10.1016/j.pepi.2012.04.002>
-
-Global CMT project: <https://www.globalcmt.org/>
-
-### Ground-motion model
-
-Ground motion is calculated with the hypocentral-distance form of the
-Akkar-Sandikkaya-Bommer model, implemented in OpenQuake HazardLib as
-`AkkarEtAlRhyp2014`.
-
-The model receives magnitude, rake, Vs30 and hypocentral distance and is used
-here to calculate PGA, PGV, SA(0.2 s) and SA(1.0 s).
-
-Reference:
-
-Akkar, S., SandÄ±kkaya, M. A. & Bommer, J. J. (2014). *Empirical ground-motion
-models for point- and extended-source crustal earthquake scenarios in Europe
-and the Middle East*. Bulletin of Earthquake Engineering, 12, 359-387.
-<https://doi.org/10.1007/s10518-013-9461-4>
-
-The repository flags source depths above 30 km and source-receiver distances
-above 200 km because these lie outside the main stated applicability range of
-the model.
-
-Software implementation:
-
-- OpenQuake Engine / HazardLib, GEM Foundation
-- Project requirements use the OpenQuake Engine 3.26 dependency set
-- Documentation: <https://docs.openquake.org/oq-engine/3.26/manual/>
-- Source: <https://github.com/gem/oq-engine>
-
-### Vs30 site-condition data
-
-Vs30 is taken from the TÃ¼rkiye-specific `TRVs30_GeoM` model.
-
-Production input:
-
-- local raster: `data/external/TRVs30GeoM_9Arcsec.tif`
-- model input: `data/turkey_50km_land_grid_vs30.csv`
-- 311 receiver locations
-- 304 direct raster samples
-- 7 nearest-valid samples within the 10 km fallback limit
-- the large source raster is intentionally excluded from Git
-
-Higher-resolution validation:
-
-- local raster: `data/external/TRVs30GeoM_3Arcsec.tif`
-- used by `vs30_raster_comparison.py`
-- used to validate the spatial pattern and receiver-level values without
-  replacing the production 9-arcsecond input
-
-Dataset:
-
-Okay, H. B. & Ã–zacar, A. A. (2023). *TRVs30_GeoM - TÃ¼rkiye Vs30 Model by
-Geological Engineering Department of METU*. Zenodo.
-<https://doi.org/10.5281/zenodo.10149864>
-
-Research paper:
-
-Okay, H. B. & Ã–zacar, A. A. (2024). *A Novel VS30 Prediction Strategy Taking
-Fluid Saturation into Account and a New VS30 Model of TÃ¼rkiye*. Bulletin of
-the Seismological Society of America, 114(2), 1048-1065.
-<https://doi.org/10.1785/0120230032>
-
-Derived exposure-grid files:
-
-- `data/turkey_50km_land_grid.csv`: validated 311-location production grid
-- `data/turkey_50km_land_grid_vs30.csv`: production grid with Vs30
-- `data/turkey_20km_land_grid.csv` and `data/turkey_20km_land_grid_vs30.csv`:
-  fine-grid case-study inputs
-- `data/turkey_10km_land_grid.csv` and `data/turkey_10km_land_grid_vs30.csv`:
-  higher-resolution fine-grid case-study inputs
-
-The 10 km and 20 km grids are case-study/presentation grids and do not replace
-the validated 50 km production grid.
-
-### Structural vulnerability model
-
-Structural loss ratios use the GEM Foundation Global Seismic Vulnerability
-Model v2026.0.0.
-
-Repository input:
-
-- `data/gem_vulnerability_v2026/vulnerability_structural.xml`
-- selected function: `MUR+CLBRS/LWAL/CDN+ERN/H:1/RES`
-- selected intensity measure: PGA in g
-- only structural loss is used
-- contents, nonstructural and fatalities/occupants models are excluded
-- licence: CC BY-NC-SA 4.0; the repository includes the licence text
-
-Dataset:
-
-Nafeh, A. M. B., Aljawhari, K. & Silva, V. (2026). *Global Seismic
-Vulnerability Model (v2026.0.0)*. Zenodo.
-<https://doi.org/10.5281/zenodo.20730225>
-
-Structural vulnerability paper:
-
-Aljawhari, K., Nafeh, A. M. B. & Silva, V. (2026). *A new global
-vulnerability model for regional seismic risk assessments: Part 1 -
-structural vulnerability*. Bulletin of Earthquake Engineering.
-<https://doi.org/10.1007/s10518-026-02443-7>
-
-GEM source repository:
-<https://github.com/gem/global_vulnerability_model/tree/v2026.0.0>
-
-### Retained exploratory exposure datasets
-
-The GEM and OpenStreetMap exposure files below are retained as exploratory development material. They are not part of the active Research Dashboard and are not currently used by the Expandable Earthquake Dashboard.
-
-The optional dashboard exposure overlay uses only the open aggregate summaries
-from the GEM Global Exposure Model v2026.0.0 TÃ¼rkiye directory:
-
-- `Exposure_Summary_Adm0.csv`;
-- `Exposure_Summary_Adm1.csv`; and
-- `Exposure_Summary_Taxonomy.csv`.
-
-The pinned source is
-<https://github.com/gem/global_exposure_model/tree/v2026.0.0/Europe/Turkiye>.
-The GEM material is licensed CC BY-NC-SA 4.0 and uses GEM Building Taxonomy
-v4.0. The restricted/full 1 km exposure model is not downloaded or used.
-
-`prepare_gem_exposure_dashboard.py` validates the source schema, the 81 unique
-Adm1 provinces, RES/COM/IND values, the `TR-23` ElazÄ±ÄŸ record and the one-to-one
-boundary join. It exports static JSON and a simplified WGS84 GeoJSON under
-`docs/data/exposure/`; the browser never fetches GEM GitHub at runtime.
-
-The province geometry is the simplified geoBoundaries gbOpen TÃ¼rkiye ADM1
-dataset pinned to source commit `9469f09`. GEM's country README documents the
-boundary source as GeoBoundaries under CC BY 4.0. The exact GeoBoundaries API
-record used for the file identifies an OpenStreetMap-derived source and reports
-CC BY-SA 2.0, so both provenance statements are retained in the generated
-metadata rather than silently replacing one with the other.
-
-`prepare_elazig_osm_dashboard.py` performs a documented one-time Overpass
-extraction of closed, building-tagged OpenStreetMap ways intersecting a fixed central
-ElazÄ±ÄŸ pilot box (`38.66, 39.18, 38.69, 39.23`). The box is not an official city
-or administrative boundary. The resulting footprints and precomputed clusters
-are static; the live dashboard does not query Overpass. OSM data are available
-under ODbL 1.0 with attribution `Â© OpenStreetMap contributors`.
-
-GEM Adm1 values are aggregate province exposure. OSM footprints are mapped
-geometry rather than a complete structural inventory. OSM tags have not been
-converted to GEM taxonomy, and no building-level structural-loss calculation
-has been validated.
-
-### Turkey boundary and mapping data
-
-The Turkey outline used for grid generation and plotting is stored in
-`data/turkey_boundary.geojson`.
-
-Source:
-
-- Natural Earth `ne_50m_admin_0_countries`
-- version 5.1.2
-- public domain
-- source repository:
-  <https://github.com/nvkelso/natural-earth-vector/tree/v5.1.2>
-- terms: <https://www.naturalearthdata.com/about/terms-of-use/>
-
-The boundary is used for geographic clipping and visualisation rather than as
-an earthquake or ground-motion input.
-
-### 2020 ElazÄ±ÄŸ-Sivrice case-study inputs
-
-The separate case-study workflow in `elazig_sivrice_depth_analysis.py` uses:
-
-- origin time: 2020-01-24 17:55:13 UTC
-- event code: `2020024175513`
-- magnitude: Mww 6.7
-- latitude: 38.3897
-- longitude: 39.0883
-- Wilber3 / USGS depth: 10 km
-- Global CMT depth: 12 km
-- analysed depth: 14 km
-- representative rake: -12 degrees from the preferred USGS Mww moment tensor,
-  nodal plane 2
-
-USGS event page:
-<https://earthquake.usgs.gov/earthquakes/eventpage/us60007ewc/executive>
-
-The 14 km value is the separately analysed case-study depth used for the
-placement comparison; it is not presented as a routine catalogue value.
-
-### Derived repository files
-
-The following are project-derived files rather than independent external
-sources:
-
-- cleaned and selected catalogue CSVs in `data/`;
-- 10 km, 20 km and 50 km exposure-grid CSVs;
-- sampled Vs30 CSVs;
-- ground-motion and structural-loss result CSVs;
-- depth-sensitivity summaries;
-- catalogue-distribution summaries;
-- ElazÄ±ÄŸ-Sivrice case-study CSVs; and
-- all figures under `outputs_gwfm/`.
-
-These files should be traced back to the source datasets and references above
-rather than cited as independent external datasets.
-
-## Run
-
-Run the main model first:
+Run the production model:
 
 ```powershell
 python akkar_turkey_portfolio_gwfm.py
 ```
 
-The main run uses `data/turkey_50km_land_grid_vs30.csv`, so the large Vs30
-raster is not needed for a normal run.
-
-The run also creates `outputs_gwfm/vs30_map.png` so the sampled values can be
-checked visually.
-
-To analyse how catalogue depth changes PGA and structural loss, run:
+Run the depth-sensitivity analysis:
 
 ```powershell
 python depth_sensitivity_analysis.py
 ```
 
-The depth-sensitivity analysis uses the complete PGA/structural-loss table
-from the main model. Its main comparison uses the 90 earthquakes that have
-valid waveform, ISC-EHB and Global CMT depths.
+Regenerate the catalogue comparison:
 
-To regenerate the presentation-ready catalogue-wide PGA and loss figures
-without changing the numerical analysis, run:
+```powershell
+python catalogue_distribution_plots.py
+```
+
+Regenerate presentation figures:
 
 ```powershell
 python presentation_figures.py
 ```
 
-To run the separate 24 January 2020 Mww 6.7 ElazÄ±ÄŸ-Sivrice presentation example,
-case-study earthquake selected by Iris from the waveform dataset,
-including its PGA-depth figure, loss-difference map and exact GEM
-vulnerability curve, run:
+Run the Elazığ-Sivrice case study:
 
 ```powershell
 python elazig_sivrice_depth_analysis.py
 ```
 
-## Vs30 Data
-
-Vs30 values come from the 9 arcsecond TRVs30GeoM model of Turkey:
-
-https://doi.org/10.5281/zenodo.10149864
-
-The grid contains 304 direct raster values. Seven coastal or edge locations
-use the nearest value between 150 and 1200 m/s within 10 km. These rows and
-their distances are marked in the CSV.
-
-To recreate the Vs30 grid, place `TRVs30GeoM_9Arcsec.tif` in `data/external`
-and run:
-
-```powershell
-python prepare_vs30_grid.py
-```
-
-### Full-raster Vs30 comparison
-
-The production model continues to use the validated 311 receiver values sampled
-from `TRVs30GeoM_9Arcsec.tif`. A separate validation workflow compares those
-values with the higher-resolution `TRVs30GeoM_3Arcsec.tif` raster without
-changing the production inputs.
-
-Place `TRVs30GeoM_3Arcsec.tif` in `data/external` and run:
+Run the Vs30 validation:
 
 ```powershell
 python vs30_raster_comparison.py
 ```
 
-The 1.2 GB source raster remains local and is ignored by Git. The comparison
-uses the native 3-arcsecond raster to sample all 311 receiver locations and
-only downsamples the raster for display.
+Run the test suite:
 
-Checked results:
+```powershell
+python -m unittest discover -s tests
+```
 
-- 311 receivers compared;
-- current 9-arcsecond model values: 304 direct and 7 nearest-valid;
-- 3-arcsecond samples: 304 direct and 7 nearest-valid;
-- median signed difference: 0.0 m/s;
-- median absolute difference: 0.52 m/s;
-- mean absolute difference: 5.02 m/s;
-- 95th percentile absolute difference: 20.85 m/s;
-- Pearson correlation: 0.9883; and
-- Spearman correlation: 0.9946.
+---
 
-For the 304 direct-to-direct receiver comparisons, the mean absolute
-difference is 3.24 m/s and the Pearson correlation is 0.9956. The largest
-differences are concentrated at some of the seven nearest-valid fallback
-locations.
+## Additional interactive visualisation
 
-This comparison is a resolution and sampling check. It does not replace the
-current 9-arcsecond Vs30 values used by the production model.
+As an **additional initiative alongside the main placement work**, I developed
+a browser-based visualisation to make the validated scientific outputs easier
+to inspect and compare interactively.
 
-The tested main run produces:
+This was not part of the original placement brief and is not the main
+scientific output of the project. The underlying datasets, Python scripts,
+calculations, numerical results and figures remain the primary project record.
 
-- 321 valid earthquake-depth combinations;
-- 99,831 earthquake-depth-location combinations;
-- 399,324 ground-motion rows;
-- 99,831 complete PGA/structural-loss rows; and
-- 321 earthquake-depth summary rows.
+**[Open the interactive project results](https://ibaadgeo.github.io/turkey-ground-motion-risk-model/)**
 
-## Outputs
+The visualisation uses the existing validated placement outputs, including:
 
-Main-model results are saved in `outputs_gwfm`:
+- selected earthquakes;
+- alternative depth sources;
+- the 311 production receivers;
+- Vs30;
+- PGA;
+- structural-loss results.
 
-- `selected_event_depths.csv`: available and missing depths for each event;
-- `ground_motion_results.csv`: calculated ground-motion values;
-- `complete_pga_structural_loss_table.csv`: one row for every valid
-  earthquake-depth-location scenario, with PGA and mean structural loss ratio;
-- `complete_output/earthquake_depth_pga_loss_summary.csv`: one compact row for
-  each of the 321 valid earthquake-depth combinations;
-- `exposure_and_earthquakes.png`: exposure grid and earthquake map;
-- `pga_map_1421.png`: example PGA map using waveform depth; and
-- `vs30_map.png`: Vs30 values across the exposure grid.
+It does not rerun the GMPE or vulnerability model in the browser.
 
-Depth-sensitivity results are saved in
-`outputs_gwfm/depth_sensitivity_analysis`:
+A separate
+**[experimental recent-earthquake explorer](https://ibaadgeo.github.io/turkey-ground-motion-risk-model/future.html)**
+is retained as a small future-development exercise. New USGS events shown
+there remain separate from the fixed placement dataset and are not currently
+passed through the project PGA or structural-loss workflow.
 
-- `depth_sensitivity_common_events_summary.csv`: fair comparison using the
-  earthquakes with all three valid depth sources;
-- `depth_sensitivity_all_available_summary.csv`: all available paired
-  comparisons;
-- `depth_sensitivity_depth_direction_summary.csv`: deeper, shallower and
-  same-depth comparison;
-- `depth_sensitivity_depth_direction_by_distance.csv`: depth direction split
-  by epicentral-distance bin;
-- `depth_sensitivity_common_event_ids.csv`: the common-event list;
-- `depth_sensitivity_continuous_summary.csv`: 1 km plotting coordinates for
-  the signed Gaussian-weighted mean and observed pair-to-pair spread;
-- `depth_sensitivity_sign_balance.csv`: negative, unchanged and positive counts
-  for 0-25 km and 0-200 km;
-- `pga_sensitivity_by_distance.png`: signed PGA changes, raw paired values and
-  a continuous distance trend; and
-- `loss_sensitivity_by_distance.png`: signed structural-loss changes, raw
-  paired values and a continuous distance trend;
-- `catalogue_pga_loss_boxplots.png`: side-by-side event-level PGA and mean
-  structural-loss distributions for the common three-catalogue earthquakes;
-- `catalogue_boxplot_event_maxima.csv`: the balanced event-level values behind
-  the boxplots; and
-- `catalogue_boxplot_summary.csv`: quartiles, maxima and zero-loss event counts
-  for each catalogue.
+Some GEM exposure and OpenStreetMap building files produced while exploring
+possible future extensions are also retained in the repository for reference.
+They are not part of the active placement analysis and no building-level PGA or
+structural-loss claims are made from them.
 
-Run `python catalogue_distribution_plots.py` after the main analysis to
-regenerate the catalogue-comparison figure and its two supporting CSV files.
-Each plotted observation is one earthquake, represented by the maximum across
-the 311 receivers, so the visual comparison does not treat the receiver rows
-as independent earthquake samples. A short explanation of the sampling,
-boxplot settings and axes is in
-[`docs/CATALOGUE_BOXPLOT_WALKTHROUGH.md`](docs/CATALOGUE_BOXPLOT_WALKTHROUGH.md).
+---
 
-Presentation-specific ElazÄ±ÄŸ-Sivrice event outputs are saved in
-`outputs_gwfm/elazig_sivrice_analysis`:
+## Current limitations
 
-- `elazig_sivrice_complete_results.csv`: all 3 depth scenarios across 311 receivers;
-- `elazig_sivrice_depth_summary.csv`: compact summary for the 10, 12 and 14 km depths;
-- `elazig_sivrice_analysed_minus_gCMT_map_data.csv`: receiver-level values behind the
-  loss-difference map;
-- `elazig_sivrice_pga_vs_depth.png`: PGA response to the three depth scenarios; and
-- `elazig_sivrice_analysed_minus_gCMT_loss_difference_map.png`: analysed 14 km minus
-  gCMT 12 km structural-loss difference.
+- Some ISC-EHB and Global CMT depths are unavailable.
+- Deep earthquakes above 30 km are retained but flagged against the main GMPE
+  applicability range.
+- Source-receiver distances above 200 km are retained but flagged.
+- The 50 km receiver grid is intended for national-scale sensitivity analysis,
+  not detailed urban hazard mapping.
+- One residential structural vulnerability function is applied at all
+  receivers.
+- The receiver grid is not a building inventory.
+- Structural-loss ratios are not monetary or insured-loss estimates.
+- Random GMPE aleatory uncertainty is not sampled in the current sensitivity
+  analysis.
+- The 3-arcsecond Vs30 raster is used only as a validation dataset and does not
+  replace the production 9-arcsecond values.
+- Exploratory GEM exposure and OpenStreetMap building data are kept separate
+  from the validated scientific analysis.
 
-The exact GEM structural vulnerability curve used by the model is also saved as:
+---
 
-- `outputs_gwfm/structural_vulnerability_curve.png`; and
-- `outputs_gwfm/structural_vulnerability_curve_points.csv`.
+## Repository purpose
 
-Full-raster Vs30 comparison outputs are saved in
-`outputs_gwfm/vs30_raster_comparison`:
+This repository provides an auditable record of the placement workflow from
+earthquake-depth data through ground-motion modelling, sensitivity analysis,
+validation, figures and final numerical outputs.
 
-- `vs30_full_raster_vs_sampled_receivers.png`: full 3-arcsecond raster pattern
-  compared with the 311 model receiver values using a common colour scale;
-- `vs30_3arcsec_minus_model_receivers.png`: receiver-level 3-arcsecond minus
-  current model Vs30 differences;
-- `vs30_3arcsec_receiver_comparison.csv`: auditable receiver-level values and
-  differences; and
-- `vs30_raster_comparison_summary.csv`: compact comparison statistics.
+The central scientific focus remains the original placement question:
 
-## Complete PGA and structural-loss output
-
-`complete_pga_structural_loss_table.csv` is the main combined output requested
-for comparing all earthquakes at all available depths. It contains 99,831 rows:
-one row for each valid event, depth source and receiver location. The key
-columns are `event_id`, `depth_source`, `source_depth_km`, `location_id`,
-`repi_km`, `rhypo_km`, `median_pga_g` and `structural_loss_ratio_mean`.
-
-The code validates that the table contains 36,387 waveform rows, 34,210
-ISC-EHB rows and 29,234 Global CMT rows, with exactly 311 receiver locations
-for every valid earthquake-depth combination. PGA values must be positive and
-structural loss ratios must be between zero and one.
-
-The compact
-`complete_output/earthquake_depth_pga_loss_summary.csv` contains 321 rows,
-one per valid earthquake-depth combination, with median, mean and maximum PGA,
-median, mean and maximum structural loss ratio, minimum distances and receiver
-counts.
-
-The 99,831-row complete CSV is a generated output and is ignored by Git. The
-321-row summary is small enough to keep with the repository outputs.
-
-## Current Limitations
-
-- Some ISC-EHB and Global CMT depths are missing and are not used.
-- Deep earthquakes and distances beyond 200 km are retained but flagged.
-- One residential structural vulnerability function is applied at every model
-  receiver; the receiver grid is not a building exposure inventory.
-- Structural loss ratios are not insured or monetary loss estimates.
-- GEM dashboard exposure is an aggregate province context layer, not individual
-  building locations.
-- The ElazÄ±ÄŸ OSM pilot is descriptive mapped geometry intersecting a fixed query
-  box; it is not a complete city or province inventory.
-- No OSM tag has been mapped to GEM taxonomy and no building-level PGA or
-  structural loss has been calculated.
-- The GEM vulnerability data are for non-commercial use under the included
-  licence.
-- `vs30_map.png` shows the 311 production receiver values. The separate
-  full-raster validation compares them with the 3-arcsecond product but
-  does not replace the production 9-arcsecond inputs.
+**How much does uncertainty in earthquake depth matter for earthquake-hazard
+estimates?**
